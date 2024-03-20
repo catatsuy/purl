@@ -27,7 +27,7 @@ func NewCLI(errStream io.Writer, inputStream io.Reader) *CLI {
 }
 
 func (c *CLI) Run(args []string) int {
-	flags := flag.NewFlagSet("notify_slack", flag.ContinueOnError)
+	flags := flag.NewFlagSet("purl", flag.ContinueOnError)
 	flags.SetOutput(c.errStream)
 
 	var replaceExpr string
@@ -67,21 +67,6 @@ func (c *CLI) Run(args []string) int {
 	}
 	searchPattern, replacement := parts[0], parts[1]
 
-	var scanner *bufio.Scanner
-
-	if filePath == "" {
-		scanner = bufio.NewScanner(c.inputStream)
-	} else {
-		file, err := os.Open(filePath)
-		if err != nil {
-			fmt.Fprintf(c.errStream, "Failed to open file: %s\n", err)
-			return ExitCodeFail
-		}
-		defer file.Close()
-
-		scanner = bufio.NewScanner(file)
-	}
-
 	var tmpFile *os.File
 
 	if inplaceEdit {
@@ -102,20 +87,19 @@ func (c *CLI) Run(args []string) int {
 		c.outStream = os.Stdout
 	}
 
-	re, err := regexp.Compile(searchPattern)
-	if err != nil {
-		fmt.Fprintf(c.errStream, "Invalid regex pattern: %s\n", err)
-		return ExitCodeFail
+	if filePath != "" {
+		file, err := os.Open(filePath)
+		if err != nil {
+			fmt.Fprintf(c.errStream, "Failed to open file: %s\n", err)
+			return ExitCodeFail
+		}
+		defer file.Close()
+
+		c.inputStream = file
 	}
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		modifiedLine := re.ReplaceAllString(line, replacement)
-		fmt.Fprintf(c.outStream, modifiedLine+"\n")
-	}
-
-	if err := scanner.Err(); err != nil {
-		fmt.Fprintf(c.errStream, "Error reading file: %s\n", err)
+	if err := c.processFiles(searchPattern, replacement); err != nil {
+		fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
 		return ExitCodeFail
 	}
 
@@ -127,4 +111,25 @@ func (c *CLI) Run(args []string) int {
 	}
 
 	return ExitCodeOK
+}
+
+func (c *CLI) processFiles(searchPattern, replacement string) error {
+	scanner := bufio.NewScanner(c.inputStream)
+
+	re, err := regexp.Compile(searchPattern)
+	if err != nil {
+		return fmt.Errorf("invalid regex pattern: %w", err)
+	}
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		modifiedLine := re.ReplaceAllString(line, replacement)
+		fmt.Fprintf(c.outStream, modifiedLine+"\n")
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error reading file: %w", err)
+	}
+
+	return nil
 }
