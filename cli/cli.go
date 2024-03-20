@@ -22,8 +22,8 @@ type CLI struct {
 	inputStream          io.Reader
 }
 
-func NewCLI(errStream io.Writer, inputStream io.Reader) *CLI {
-	return &CLI{errStream: errStream, inputStream: inputStream}
+func NewCLI(outStream, errStream io.Writer, inputStream io.Reader) *CLI {
+	return &CLI{outStream: outStream, errStream: errStream, inputStream: inputStream}
 }
 
 func (c *CLI) Run(args []string) int {
@@ -83,8 +83,6 @@ func (c *CLI) Run(args []string) int {
 			fmt.Fprintf(c.errStream, "Failed to open file for writing: %s\n", err)
 			return ExitCodeFail
 		}
-	} else {
-		c.outStream = os.Stdout
 	}
 
 	if filePath != "" {

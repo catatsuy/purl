@@ -15,6 +15,10 @@ vet:
 staticcheck:
 	staticcheck -checks="all,-ST1000" ./...
 
+.PHONY: test
+test:
+	go test -cover -v ./...
+
 .PHONY: clean
 clean:
 	rm -rf bin/*
