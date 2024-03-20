@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"regexp"
+
+	"golang.org/x/term"
 )
 
 const (
@@ -20,8 +22,8 @@ type CLI struct {
 	inputStream          io.Reader
 }
 
-func NewCLI(outStream, errStream io.Writer, inputStream io.Reader) *CLI {
-	return &CLI{outStream: outStream, errStream: errStream, inputStream: inputStream}
+func NewCLI(errStream io.Writer, inputStream io.Reader) *CLI {
+	return &CLI{errStream: errStream, inputStream: inputStream}
 }
 
 func (c *CLI) Run(args []string) int {
@@ -29,19 +31,28 @@ func (c *CLI) Run(args []string) int {
 	flags.SetOutput(c.errStream)
 
 	var replaceExpr string
+	var inplaceEdit bool
 
-	flags.StringVar(&replaceExpr, "replace", "", `Replacement expression, e.g., "@search@replace@"`+"\n")
+	flags.BoolVar(&inplaceEdit, "i", false, "overwrite the file inplace")
+	flags.StringVar(&replaceExpr, "replace", "", `Replacement expression, e.g., "@search@replace@"`)
 
 	err := flags.Parse(args[1:])
 	if err != nil {
 		return ExitCodeParseFlagError
 	}
 
-	if flags.NArg() == 0 {
-		fmt.Fprintf(c.errStream, "Usage: purl --replace \"@search@replace@\" filename\n")
+	filePath := ""
+	if flags.NArg() > 0 {
+		filePath = flags.Arg(0)
+	} else if term.IsTerminal(int(os.Stdin.Fd())) {
+		fmt.Fprintf(c.errStream, "No input file specified\n")
 		return ExitCodeFail
 	}
-	filePath := flags.Arg(0)
+
+	if inplaceEdit && filePath == "" {
+		fmt.Fprintf(c.errStream, "Cannot use -i option with stdin\n")
+		return ExitCodeFail
+	}
 
 	if len(replaceExpr) < 3 {
 		fmt.Fprintf(c.errStream, "Invalid replace expression format. Use \"@search@replace@\"\n")
@@ -56,14 +67,41 @@ func (c *CLI) Run(args []string) int {
 	}
 	searchPattern, replacement := parts[0], parts[1]
 
-	file, err := os.Open(filePath)
-	if err != nil {
-		fmt.Fprintf(c.errStream, "Failed to open file: %s\n", err)
-		return ExitCodeFail
-	}
-	defer file.Close()
+	var scanner *bufio.Scanner
 
-	scanner := bufio.NewScanner(file)
+	if filePath == "" {
+		scanner = bufio.NewScanner(c.inputStream)
+	} else {
+		file, err := os.Open(filePath)
+		if err != nil {
+			fmt.Fprintf(c.errStream, "Failed to open file: %s\n", err)
+			return ExitCodeFail
+		}
+		defer file.Close()
+
+		scanner = bufio.NewScanner(file)
+	}
+
+	var tmpFile *os.File
+
+	if inplaceEdit {
+		tmpFile, err = os.CreateTemp("", "purl")
+		if err != nil {
+			fmt.Fprintf(c.errStream, "Failed to create temp file: %s\n", err)
+			return ExitCodeFail
+		}
+		defer tmpFile.Close()
+		defer os.Remove(tmpFile.Name())
+
+		c.outStream, err = os.Create(tmpFile.Name())
+		if err != nil {
+			fmt.Fprintf(c.errStream, "Failed to open file for writing: %s\n", err)
+			return ExitCodeFail
+		}
+	} else {
+		c.outStream = os.Stdout
+	}
+
 	re, err := regexp.Compile(searchPattern)
 	if err != nil {
 		fmt.Fprintf(c.errStream, "Invalid regex pattern: %s\n", err)
@@ -77,8 +115,15 @@ func (c *CLI) Run(args []string) int {
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Printf("Error reading file: %s\n", err)
+		fmt.Fprintf(c.errStream, "Error reading file: %s\n", err)
 		return ExitCodeFail
+	}
+
+	if inplaceEdit {
+		if err := os.Rename(tmpFile.Name(), filePath); err != nil {
+			fmt.Fprintf(c.errStream, "Failed to overwrite the original file: %s\n", err)
+			return ExitCodeFail
+		}
 	}
 
 	return ExitCodeOK
