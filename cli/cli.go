@@ -31,6 +31,11 @@ func (i *rawStrings) Set(value string) error {
 type CLI struct {
 	outStream, errStream io.Writer
 	inputStream          io.Reader
+
+	filePath    string
+	replaceExpr string
+	isOverwrite bool
+	filters     rawStrings
 }
 
 func NewCLI(outStream, errStream io.Writer, inputStream io.Reader) *CLI {
@@ -38,47 +43,20 @@ func NewCLI(outStream, errStream io.Writer, inputStream io.Reader) *CLI {
 }
 
 func (c *CLI) Run(args []string) int {
-	flags := flag.NewFlagSet("purl", flag.ContinueOnError)
-	flags.SetOutput(c.errStream)
-
-	var replaceExpr string
-	var isOverwrite bool
-	var filters rawStrings
-
-	flags.BoolVar(&isOverwrite, "overwrite", false, "overwrite the file in place")
-	flags.StringVar(&replaceExpr, "replace", "", `Replacement expression, e.g., "@search@replace@"`)
-	flags.Var(&filters, "filter", `Filter expression`)
-
-	err := flags.Parse(args[1:])
+	flags, err := c.parseFlags(args)
 	if err != nil {
+		fmt.Fprintf(c.errStream, "Failed to parse flags: %s\n", err)
 		return ExitCodeParseFlagError
 	}
 
-	filePath := ""
-	if flags.NArg() > 0 {
-		filePath = flags.Arg(0)
-	} else if term.IsTerminal(int(os.Stdin.Fd())) {
-		fmt.Fprintln(c.errStream, "No input file specified")
+	err = c.validateInput(flags)
+	if err != nil {
+		fmt.Fprintf(c.errStream, "Failed to validate input: %s\n", err)
 		return ExitCodeFail
 	}
 
-	if isOverwrite && filePath == "" {
-		fmt.Fprintln(c.errStream, "Cannot use -overwrite option with stdin")
-		return ExitCodeFail
-	}
-
-	if len(replaceExpr) != 0 && len(filters) != 0 {
-		fmt.Fprintln(c.errStream, "Cannot use -replace and -filter options together")
-		return ExitCodeFail
-	}
-
-	if len(filters) == 0 && len(replaceExpr) < 3 {
-		fmt.Fprintln(c.errStream, "Invalid replace expression format. Use \"@search@replace@\"")
-		return ExitCodeFail
-	}
-
-	if filePath != "" {
-		file, err := os.Open(filePath)
+	if c.filePath != "" {
+		file, err := os.Open(c.filePath)
 		if err != nil {
 			fmt.Fprintf(c.errStream, "Failed to open file: %s\n", err)
 			return ExitCodeFail
@@ -90,7 +68,7 @@ func (c *CLI) Run(args []string) int {
 
 	var tmpFile *os.File
 
-	if isOverwrite {
+	if c.isOverwrite {
 		tmpFile, err = os.CreateTemp("", "purl")
 		if err != nil {
 			fmt.Fprintf(c.errStream, "Failed to create temp file: %s\n", err)
@@ -106,9 +84,9 @@ func (c *CLI) Run(args []string) int {
 		}
 	}
 
-	if len(replaceExpr) != 0 {
-		delimiter := string(replaceExpr[0])
-		parts := regexp.MustCompile(regexp.QuoteMeta(delimiter)).Split(replaceExpr[1:], -1)
+	if len(c.replaceExpr) > 0 {
+		delimiter := string(c.replaceExpr[0])
+		parts := regexp.MustCompile(regexp.QuoteMeta(delimiter)).Split(c.replaceExpr[1:], -1)
 		if len(parts) < 2 {
 			fmt.Fprintln(c.errStream, "Invalid replace expression format. Use \"@search@replace@\"")
 			return ExitCodeFail
@@ -121,8 +99,8 @@ func (c *CLI) Run(args []string) int {
 		}
 	}
 
-	if len(filters) != 0 {
-		regexps, err := compileRegexps(filters)
+	if len(c.filters) > 0 {
+		regexps, err := compileRegexps(c.filters)
 		if err != nil {
 			fmt.Fprintf(c.errStream, "Failed to compile regex patterns: %s\n", err)
 			return ExitCodeFail
@@ -135,14 +113,59 @@ func (c *CLI) Run(args []string) int {
 		}
 	}
 
-	if isOverwrite {
-		if err := os.Rename(tmpFile.Name(), filePath); err != nil {
+	if c.isOverwrite {
+		if err := os.Rename(tmpFile.Name(), c.filePath); err != nil {
 			fmt.Fprintf(c.errStream, "Failed to overwrite the original file: %s\n", err)
 			return ExitCodeFail
 		}
 	}
 
 	return ExitCodeOK
+}
+
+func (c *CLI) parseFlags(args []string) (*flag.FlagSet, error) {
+	flags := flag.NewFlagSet("purl", flag.ContinueOnError)
+	flags.SetOutput(c.errStream)
+
+	flags.BoolVar(&c.isOverwrite, "overwrite", false, "overwrite the file in place")
+	flags.StringVar(&c.replaceExpr, "replace", "", `Replacement expression, e.g., "@search@replace@"`)
+	flags.Var(&c.filters, "filter", `Filter expression`)
+
+	err := flags.Parse(args[1:])
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse flags: %w", err)
+	}
+
+	return flags, nil
+}
+
+func (c *CLI) validateInput(flags *flag.FlagSet) error {
+	if flags.NArg() == 0 && term.IsTerminal(int(os.Stdin.Fd())) {
+		return fmt.Errorf("no input file specified")
+	}
+
+	if flags.NArg() == 0 && c.isOverwrite {
+		return fmt.Errorf("cannot use -overwrite option with stdin")
+	}
+
+	if len(c.replaceExpr) != 0 && len(c.filters) != 0 {
+		return fmt.Errorf("cannot use -replace and -filter options together")
+	}
+
+	if len(c.filters) == 0 && len(c.replaceExpr) < 3 {
+		return fmt.Errorf("invalid replace expression format. Use \"@search@replace@\"")
+	}
+
+	if flags.NArg() == 0 {
+		return nil
+	}
+
+	c.filePath = flags.Arg(0)
+	if _, err := os.Stat(c.filePath); os.IsNotExist(err) {
+		return fmt.Errorf("input file does not exist")
+	}
+
+	return nil
 }
 
 func (c *CLI) replaceProcess(searchPattern, replacement string) error {

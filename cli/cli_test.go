@@ -61,12 +61,43 @@ func TestRun_success(t *testing.T) {
 }
 
 func TestRun_failToProvideStdin(t *testing.T) {
-	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-	cl := cli.NewCLI(outStream, errStream, os.Stdin)
+	testCases := []struct {
+		desc         string
+		args         []string
+		expectedCode int
+	}{
+		{
+			desc:         "fail to provide -replace",
+			args:         []string{"purl", "-replace", "search@replacement"},
+			expectedCode: 1,
+		},
+		{
+			desc:         "fail to provide -filter and -replace",
+			args:         []string{"purl", "-filter", "aaa", "-replace", "@search@replacement@"},
+			expectedCode: 1,
+		},
+		{
+			desc:         "non-existent file with -replace",
+			args:         []string{"purl", "-replace", "@search@replacement@", "testdata/noexist.txt"},
+			expectedCode: 1,
+		},
+		{
+			desc:         "non-existent file with -filter",
+			args:         []string{"purl", "-filter", "aaaaa", "testdata/noexist.txt"},
+			expectedCode: 1,
+		},
+	}
 
-	expectedCode := 1
-	if got, expected := cl.Run([]string{"purl", "-replace", "@search@replacement@"}), expectedCode; got == expected {
-		t.Fatalf("Expected exit code %d, but got %d; error: %q", expected, got, errStream.String())
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+			outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+			cl := cli.NewCLI(outStream, errStream, os.Stdin)
+
+			if got := cl.Run(tc.args); got != tc.expectedCode {
+				t.Fatalf("Expected exit code %d, but got %d; error: %q", tc.expectedCode, got, errStream.String())
+			}
+		})
 	}
 }
 
