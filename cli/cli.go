@@ -45,24 +45,24 @@ func (c *CLI) Run(args []string) int {
 	if flags.NArg() > 0 {
 		filePath = flags.Arg(0)
 	} else if term.IsTerminal(int(os.Stdin.Fd())) {
-		fmt.Fprintf(c.errStream, "No input file specified\n")
+		fmt.Fprintln(c.errStream, "No input file specified")
 		return ExitCodeFail
 	}
 
 	if inplaceEdit && filePath == "" {
-		fmt.Fprintf(c.errStream, "Cannot use -i option with stdin\n")
+		fmt.Fprintln(c.errStream, "Cannot use -i option with stdin")
 		return ExitCodeFail
 	}
 
 	if len(replaceExpr) < 3 {
-		fmt.Fprintf(c.errStream, "Invalid replace expression format. Use \"@search@replace@\"\n")
+		fmt.Fprintln(c.errStream, "Invalid replace expression format. Use \"@search@replace@\"")
 		return ExitCodeFail
 	}
 
 	delimiter := string(replaceExpr[0])
 	parts := regexp.MustCompile(regexp.QuoteMeta(delimiter)).Split(replaceExpr[1:], -1)
 	if len(parts) < 2 {
-		fmt.Fprintf(c.errStream, "Invalid replace expression format. Use \"@search@replace@\"\n")
+		fmt.Fprintln(c.errStream, "Invalid replace expression format. Use \"@search@replace@\"")
 		return ExitCodeFail
 	}
 	searchPattern, replacement := parts[0], parts[1]
@@ -122,7 +122,7 @@ func (c *CLI) processFiles(searchPattern, replacement string) error {
 	for scanner.Scan() {
 		line := scanner.Text()
 		modifiedLine := re.ReplaceAllString(line, replacement)
-		fmt.Fprintf(c.outStream, modifiedLine+"\n")
+		fmt.Fprintln(c.outStream, modifiedLine)
 	}
 
 	if err := scanner.Err(); err != nil {
