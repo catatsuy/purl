@@ -105,3 +105,110 @@ func TestReplaceProcess_noMatch(t *testing.T) {
 		t.Errorf("Output=%q, want %q; error: %q", outStream.String(), expected, errStream.String())
 	}
 }
+
+func TestCompileRegexps(t *testing.T) {
+	tests := []struct {
+		name      string
+		patterns  []string
+		wantError bool
+	}{
+		{
+			name:      "ValidPatterns",
+			patterns:  []string{"^test", "end$", "[0-9]+"},
+			wantError: false,
+		},
+		{
+			name:      "InvalidPattern",
+			patterns:  []string{"["},
+			wantError: true,
+		},
+		{
+			name:      "EmptyPattern",
+			patterns:  []string{""},
+			wantError: false,
+		},
+		{
+			name:      "MixedValidAndInvalidPatterns",
+			patterns:  []string{"^test", "["},
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := cli.CompileRegexps(tt.patterns)
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("%s: expected an error but got none", tt.name)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("%s: unexpected error: %v", tt.name, err)
+				}
+				if len(got) != len(tt.patterns) {
+					t.Errorf("%s: expected %d compiled regexps, got %d", tt.name, len(tt.patterns), len(got))
+				}
+			}
+		})
+	}
+}
+
+func TestFilterProcess(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		patterns   []string
+		wantOutput string
+	}{
+		{
+			name:       "SingleMatch",
+			input:      "apple\nbanana\ncherry\n",
+			patterns:   []string{"banana"},
+			wantOutput: "banana\n",
+		},
+		{
+			name:       "MultipleMatches",
+			input:      "apple\nbanana\ncherry\n",
+			patterns:   []string{"apple", "cherry"},
+			wantOutput: "apple\ncherry\n",
+		},
+		{
+			name:       "NoMatch",
+			input:      "apple\nbanana\ncherry\n",
+			patterns:   []string{"date"},
+			wantOutput: "",
+		},
+		{
+			name:       "EmptyInput",
+			input:      "",
+			patterns:   []string{"apple"},
+			wantOutput: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			outStream, errStream, inputStream := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
+			cl := cli.NewCLI(outStream, errStream, inputStream)
+			inputStream.WriteString(tt.input)
+
+			regexps, err := cli.CompileRegexps(tt.patterns)
+			if err != nil {
+				t.Errorf("CompileRegexps() error = %v", err)
+				return
+			}
+
+			err = cl.FilterProcess(regexps)
+			if err != nil {
+				t.Errorf("filterProcess() error = %v", err)
+				return
+			}
+
+			gotOutput := outStream.String()
+			if gotOutput != tt.wantOutput {
+				t.Errorf("filterProcess() gotOutput = %v, want %v", gotOutput, tt.wantOutput)
+			}
+		})
+	}
+}
