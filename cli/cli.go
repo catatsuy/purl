@@ -31,9 +31,9 @@ func (c *CLI) Run(args []string) int {
 	flags.SetOutput(c.errStream)
 
 	var replaceExpr string
-	var inplaceEdit bool
+	var isOverwrite bool
 
-	flags.BoolVar(&inplaceEdit, "overwrite", false, "overwrite the file in place")
+	flags.BoolVar(&isOverwrite, "overwrite", false, "overwrite the file in place")
 	flags.StringVar(&replaceExpr, "replace", "", `Replacement expression, e.g., "@search@replace@"`)
 
 	err := flags.Parse(args[1:])
@@ -49,7 +49,7 @@ func (c *CLI) Run(args []string) int {
 		return ExitCodeFail
 	}
 
-	if inplaceEdit && filePath == "" {
+	if isOverwrite && filePath == "" {
 		fmt.Fprintln(c.errStream, "Cannot use -i option with stdin")
 		return ExitCodeFail
 	}
@@ -69,7 +69,7 @@ func (c *CLI) Run(args []string) int {
 
 	var tmpFile *os.File
 
-	if inplaceEdit {
+	if isOverwrite {
 		tmpFile, err = os.CreateTemp("", "purl")
 		if err != nil {
 			fmt.Fprintf(c.errStream, "Failed to create temp file: %s\n", err)
@@ -101,7 +101,7 @@ func (c *CLI) Run(args []string) int {
 		return ExitCodeFail
 	}
 
-	if inplaceEdit {
+	if isOverwrite {
 		if err := os.Rename(tmpFile.Name(), filePath); err != nil {
 			fmt.Fprintf(c.errStream, "Failed to overwrite the original file: %s\n", err)
 			return ExitCodeFail
