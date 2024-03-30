@@ -76,7 +76,7 @@ func TestProcessFiles_replace(t *testing.T) {
 
 	inputStream.WriteString("searchb searchc")
 
-	err := cl.ProcessFiles("search", "replacement")
+	err := cl.ReplaceProcess("search", "replacement")
 
 	if err != nil {
 		t.Errorf("Error=%q", err)
@@ -94,7 +94,7 @@ func TestProcessFiles_noMatch(t *testing.T) {
 
 	inputStream.WriteString("no match")
 
-	err := cl.ProcessFiles("search", "replacement")
+	err := cl.ReplaceProcess("search", "replacement")
 
 	if err != nil {
 		t.Errorf("Error=%q", err)
