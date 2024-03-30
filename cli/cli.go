@@ -33,7 +33,7 @@ func (c *CLI) Run(args []string) int {
 	var replaceExpr string
 	var inplaceEdit bool
 
-	flags.BoolVar(&inplaceEdit, "i", false, "overwrite the file inplace")
+	flags.BoolVar(&inplaceEdit, "overwrite", false, "overwrite the file in place")
 	flags.StringVar(&replaceExpr, "replace", "", `Replacement expression, e.g., "@search@replace@"`)
 
 	err := flags.Parse(args[1:])
