@@ -70,7 +70,7 @@ func TestRun_failToProvideStdin(t *testing.T) {
 	}
 }
 
-func TestProcessFiles_replace(t *testing.T) {
+func TestReplaceProcess_replace(t *testing.T) {
 	outStream, errStream, inputStream := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
 	cl := cli.NewCLI(outStream, errStream, inputStream)
 
@@ -88,7 +88,7 @@ func TestProcessFiles_replace(t *testing.T) {
 	}
 }
 
-func TestProcessFiles_noMatch(t *testing.T) {
+func TestReplaceProcess_noMatch(t *testing.T) {
 	outStream, errStream, inputStream := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
 	cl := cli.NewCLI(outStream, errStream, inputStream)
 
