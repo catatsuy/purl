@@ -50,7 +50,7 @@ func (c *CLI) Run(args []string) int {
 	}
 
 	if isOverwrite && filePath == "" {
-		fmt.Fprintln(c.errStream, "Cannot use -i option with stdin")
+		fmt.Fprintln(c.errStream, "Cannot use -overwrite option with stdin")
 		return ExitCodeFail
 	}
 
@@ -59,13 +59,16 @@ func (c *CLI) Run(args []string) int {
 		return ExitCodeFail
 	}
 
-	delimiter := string(replaceExpr[0])
-	parts := regexp.MustCompile(regexp.QuoteMeta(delimiter)).Split(replaceExpr[1:], -1)
-	if len(parts) < 2 {
-		fmt.Fprintln(c.errStream, "Invalid replace expression format. Use \"@search@replace@\"")
-		return ExitCodeFail
+	if filePath != "" {
+		file, err := os.Open(filePath)
+		if err != nil {
+			fmt.Fprintf(c.errStream, "Failed to open file: %s\n", err)
+			return ExitCodeFail
+		}
+		defer file.Close()
+
+		c.inputStream = file
 	}
-	searchPattern, replacement := parts[0], parts[1]
 
 	var tmpFile *os.File
 
@@ -85,18 +88,15 @@ func (c *CLI) Run(args []string) int {
 		}
 	}
 
-	if filePath != "" {
-		file, err := os.Open(filePath)
-		if err != nil {
-			fmt.Fprintf(c.errStream, "Failed to open file: %s\n", err)
-			return ExitCodeFail
-		}
-		defer file.Close()
-
-		c.inputStream = file
+	delimiter := string(replaceExpr[0])
+	parts := regexp.MustCompile(regexp.QuoteMeta(delimiter)).Split(replaceExpr[1:], -1)
+	if len(parts) < 2 {
+		fmt.Fprintln(c.errStream, "Invalid replace expression format. Use \"@search@replace@\"")
+		return ExitCodeFail
 	}
+	searchPattern, replacement := parts[0], parts[1]
 
-	if err := c.processFiles(searchPattern, replacement); err != nil {
+	if err := c.replaceProcess(searchPattern, replacement); err != nil {
 		fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
 		return ExitCodeFail
 	}
@@ -111,7 +111,7 @@ func (c *CLI) Run(args []string) int {
 	return ExitCodeOK
 }
 
-func (c *CLI) processFiles(searchPattern, replacement string) error {
+func (c *CLI) replaceProcess(searchPattern, replacement string) error {
 	scanner := bufio.NewScanner(c.inputStream)
 
 	re, err := regexp.Compile(searchPattern)

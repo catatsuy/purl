@@ -1,5 +1,5 @@
 package cli
 
-func (c *CLI) ProcessFiles(searchPattern string, replacement string) error {
-	return c.processFiles(searchPattern, replacement)
+func (c *CLI) ReplaceProcess(searchPattern string, replacement string) error {
+	return c.replaceProcess(searchPattern, replacement)
 }
