@@ -36,6 +36,7 @@ type CLI struct {
 	replaceExpr string
 	isOverwrite bool
 	filters     rawStrings
+	notFilters  rawStrings
 	help        bool
 }
 
@@ -105,14 +106,20 @@ func (c *CLI) Run(args []string) int {
 		}
 	}
 
-	if len(c.filters) > 0 {
-		regexps, err := compileRegexps(c.filters)
+	if len(c.filters) > 0 || len(c.notFilters) > 0 {
+		filters, err := compileRegexps(c.filters)
 		if err != nil {
 			fmt.Fprintf(c.errStream, "Failed to compile regex patterns: %s\n", err)
 			return ExitCodeFail
 		}
 
-		err = c.filterProcess(regexps)
+		notFilters, err := compileRegexps(c.notFilters)
+		if err != nil {
+			fmt.Fprintf(c.errStream, "Failed to compile regex patterns: %s\n", err)
+			return ExitCodeFail
+		}
+
+		err = c.filterProcess(filters, notFilters)
 		if err != nil {
 			fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
 			return ExitCodeFail
@@ -136,6 +143,7 @@ func (c *CLI) parseFlags(args []string) (*flag.FlagSet, error) {
 	flags.BoolVar(&c.isOverwrite, "overwrite", false, "overwrite the file in place")
 	flags.StringVar(&c.replaceExpr, "replace", "", `Replacement expression, e.g., "@search@replace@"`)
 	flags.Var(&c.filters, "filter", `Filter expression`)
+	flags.Var(&c.notFilters, "not-filter", `Not filter expression`)
 	flags.BoolVar(&c.help, "help", false, `Show help`)
 
 	flags.Usage = func() {
@@ -160,11 +168,11 @@ func (c *CLI) validateInput(flags *flag.FlagSet) error {
 		return fmt.Errorf("cannot use -overwrite option with stdin")
 	}
 
-	if len(c.replaceExpr) != 0 && len(c.filters) != 0 {
+	if len(c.replaceExpr) != 0 && (len(c.filters) != 0 || len(c.notFilters) != 0) {
 		return fmt.Errorf("cannot use -replace and -filter options together")
 	}
 
-	if len(c.filters) == 0 && len(c.replaceExpr) < 3 {
+	if (len(c.filters) == 0 && len(c.notFilters) == 0) && len(c.replaceExpr) < 3 {
 		return fmt.Errorf("invalid replace expression format. Use \"@search@replace@\"")
 	}
 
@@ -201,17 +209,13 @@ func (c *CLI) replaceProcess(searchPattern, replacement string) error {
 	return nil
 }
 
-func (c *CLI) filterProcess(regexps []*regexp.Regexp) error {
+func (c *CLI) filterProcess(filters []*regexp.Regexp, notFilters []*regexp.Regexp) error {
 	scanner := bufio.NewScanner(c.inputStream)
 
 	for scanner.Scan() {
 		line := scanner.Text()
-
-		for _, re := range regexps {
-			if re.MatchString(line) {
-				fmt.Fprintln(c.outStream, line)
-				break
-			}
+		if matchesFilters(line, filters) || (len(notFilters) > 0 && !matchesFilters(line, notFilters)) {
+			fmt.Fprintln(c.outStream, line)
 		}
 	}
 
@@ -232,4 +236,13 @@ func compileRegexps(rawPatterns []string) ([]*regexp.Regexp, error) {
 		regexps = append(regexps, re)
 	}
 	return regexps, nil
+}
+
+func matchesFilters(line string, regexps []*regexp.Regexp) bool {
+	for _, re := range regexps {
+		if re.MatchString(line) {
+			return true
+		}
+	}
+	return false
 }

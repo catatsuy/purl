@@ -17,7 +17,7 @@ func TestNewCLI(t *testing.T) {
 	}
 }
 
-func TestRun_success(t *testing.T) {
+func TestRun_successProcess(t *testing.T) {
 	tests := map[string]struct {
 		args     []string
 		input    string
@@ -60,7 +60,7 @@ func TestRun_success(t *testing.T) {
 	}
 }
 
-func TestRun_help(t *testing.T) {
+func TestRun_success(t *testing.T) {
 	testCases := []struct {
 		desc         string
 		args         []string
@@ -69,6 +69,36 @@ func TestRun_help(t *testing.T) {
 		{
 			desc:         "help option",
 			args:         []string{"purl", "-help"},
+			expectedCode: 0,
+		},
+		{
+			desc:         "filter",
+			args:         []string{"purl", "-filter", "search"},
+			expectedCode: 0,
+		},
+		{
+			desc:         "multiple -filter",
+			args:         []string{"purl", "-filter", "search", "-filter", "search2"},
+			expectedCode: 0,
+		},
+		{
+			desc:         "replace",
+			args:         []string{"purl", "-replace", "@search@replace@"},
+			expectedCode: 0,
+		},
+		{
+			desc:         "-not-filter",
+			args:         []string{"purl", "-not-filter", "not filter"},
+			expectedCode: 0,
+		},
+		{
+			desc:         "multiple -not-filter",
+			args:         []string{"purl", "-not-filter", "not filter", "-not-filter", "not filter2"},
+			expectedCode: 0,
+		},
+		{
+			desc:         "provide -filter and -not-filter",
+			args:         []string{"purl", "-filter", "filter", "-not-filter", "not filter2"},
 			expectedCode: 0,
 		},
 	}
@@ -214,32 +244,64 @@ func TestFilterProcess(t *testing.T) {
 	tests := []struct {
 		name       string
 		input      string
-		patterns   []string
+		filters    []string
+		notFilters []string
 		wantOutput string
 	}{
 		{
 			name:       "SingleMatch",
 			input:      "apple\nbanana\ncherry\n",
-			patterns:   []string{"banana"},
+			filters:    []string{"banana"},
 			wantOutput: "banana\n",
 		},
 		{
 			name:       "MultipleMatches",
 			input:      "apple\nbanana\ncherry\n",
-			patterns:   []string{"apple", "cherry"},
+			filters:    []string{"apple", "cherry"},
 			wantOutput: "apple\ncherry\n",
 		},
 		{
 			name:       "NoMatch",
 			input:      "apple\nbanana\ncherry\n",
-			patterns:   []string{"date"},
+			filters:    []string{"date"},
 			wantOutput: "",
 		},
 		{
 			name:       "EmptyInput",
 			input:      "",
-			patterns:   []string{"apple"},
+			filters:    []string{"apple"},
 			wantOutput: "",
+		},
+		{
+			name:       "-not-filter: SingleMatch",
+			input:      "apple\nbanana\ncherry\n",
+			notFilters: []string{"banana"},
+			wantOutput: "apple\ncherry\n",
+		},
+		{
+			name:       "-not-filter: MultipleMatches",
+			input:      "apple\nbanana\ncherry\n",
+			notFilters: []string{"apple", "cherry"},
+			wantOutput: "banana\n",
+		},
+		{
+			name:       "-not-filter: NoMatch",
+			input:      "apple\nbanana\ncherry\n",
+			notFilters: []string{"date"},
+			wantOutput: "apple\nbanana\ncherry\n",
+		},
+		{
+			name:       "-not-filter: EmptyInput",
+			input:      "",
+			notFilters: []string{"apple"},
+			wantOutput: "",
+		},
+		{
+			name:       "provide filter and not filter",
+			input:      "apple\nbanana\ncherry\n",
+			filters:    []string{"apple"},
+			notFilters: []string{"cherry"},
+			wantOutput: "apple\nbanana\n",
 		},
 	}
 
@@ -250,13 +312,19 @@ func TestFilterProcess(t *testing.T) {
 			cl := cli.NewCLI(outStream, errStream, inputStream)
 			inputStream.WriteString(tt.input)
 
-			regexps, err := cli.CompileRegexps(tt.patterns)
+			filters, err := cli.CompileRegexps(tt.filters)
 			if err != nil {
 				t.Errorf("CompileRegexps() error = %v", err)
 				return
 			}
 
-			err = cl.FilterProcess(regexps)
+			notFilters, err := cli.CompileRegexps(tt.notFilters)
+			if err != nil {
+				t.Errorf("CompileRegexps() error = %v", err)
+				return
+			}
+
+			err = cl.FilterProcess(filters, notFilters)
 			if err != nil {
 				t.Errorf("filterProcess() error = %v", err)
 				return
