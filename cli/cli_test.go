@@ -60,6 +60,32 @@ func TestRun_success(t *testing.T) {
 	}
 }
 
+func TestRun_help(t *testing.T) {
+	testCases := []struct {
+		desc         string
+		args         []string
+		expectedCode int
+	}{
+		{
+			desc:         "help option",
+			args:         []string{"purl", "-help"},
+			expectedCode: 0,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+			outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+			cl := cli.NewCLI(outStream, errStream, os.Stdin)
+
+			if got := cl.Run(tc.args); got != tc.expectedCode {
+				t.Fatalf("Expected exit code %d, but got %d; error: %q", tc.expectedCode, got, errStream.String())
+			}
+		})
+	}
+}
+
 func TestRun_failToProvideStdin(t *testing.T) {
 	testCases := []struct {
 		desc         string

@@ -36,6 +36,7 @@ type CLI struct {
 	replaceExpr string
 	isOverwrite bool
 	filters     rawStrings
+	help        bool
 }
 
 func NewCLI(outStream, errStream io.Writer, inputStream io.Reader) *CLI {
@@ -47,6 +48,11 @@ func (c *CLI) Run(args []string) int {
 	if err != nil {
 		fmt.Fprintf(c.errStream, "Failed to parse flags: %s\n", err)
 		return ExitCodeParseFlagError
+	}
+
+	if c.help {
+		flags.Usage()
+		return ExitCodeOK
 	}
 
 	err = c.validateInput(flags)
@@ -130,6 +136,12 @@ func (c *CLI) parseFlags(args []string) (*flag.FlagSet, error) {
 	flags.BoolVar(&c.isOverwrite, "overwrite", false, "overwrite the file in place")
 	flags.StringVar(&c.replaceExpr, "replace", "", `Replacement expression, e.g., "@search@replace@"`)
 	flags.Var(&c.filters, "filter", `Filter expression`)
+	flags.BoolVar(&c.help, "help", false, `Show help`)
+
+	flags.Usage = func() {
+		fmt.Fprintln(c.errStream, "Usage: purl [options] [file]")
+		flags.PrintDefaults()
+	}
 
 	err := flags.Parse(args[1:])
 	if err != nil {
