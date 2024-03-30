@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"bytes"
+	"os"
 	"testing"
 
 	"github.com/catatsuy/purl/cli"
@@ -56,6 +57,16 @@ func TestRun_success(t *testing.T) {
 				t.Errorf("Output=%q, want %q; error: %q", outStream.String(), test.expected, errStream.String())
 			}
 		})
+	}
+}
+
+func TestRun_failToProvideStdin(t *testing.T) {
+	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	cl := cli.NewCLI(outStream, errStream, os.Stdin)
+
+	expectedCode := 1
+	if got, expected := cl.Run([]string{"purl", "-replace", "@search@replacement@"}), expectedCode; got == expected {
+		t.Fatalf("Expected exit code %d, but got %d; error: %q", expected, got, errStream.String())
 	}
 }
 
