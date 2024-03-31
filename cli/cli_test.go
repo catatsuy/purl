@@ -87,18 +87,18 @@ func TestRun_success(t *testing.T) {
 			expectedCode: 0,
 		},
 		{
-			desc:         "-not-filter",
-			args:         []string{"purl", "-not-filter", "not filter"},
+			desc:         "-exclude",
+			args:         []string{"purl", "-exclude", "not filter"},
 			expectedCode: 0,
 		},
 		{
-			desc:         "multiple -not-filter",
-			args:         []string{"purl", "-not-filter", "not filter", "-not-filter", "not filter2"},
+			desc:         "multiple -exclude",
+			args:         []string{"purl", "-exclude", "not filter", "-exclude", "not filter2"},
 			expectedCode: 0,
 		},
 		{
-			desc:         "provide -filter and -not-filter",
-			args:         []string{"purl", "-filter", "filter", "-not-filter", "not filter2"},
+			desc:         "provide -filter and -exclude",
+			args:         []string{"purl", "-filter", "filter", "-exclude", "not filter2"},
 			expectedCode: 0,
 		},
 	}
@@ -245,7 +245,7 @@ func TestFilterProcess(t *testing.T) {
 		name       string
 		input      string
 		filters    []string
-		notFilters []string
+		excludes   []string
 		wantOutput string
 	}{
 		{
@@ -273,34 +273,34 @@ func TestFilterProcess(t *testing.T) {
 			wantOutput: "",
 		},
 		{
-			name:       "-not-filter: SingleMatch",
+			name:       "-exclude: SingleMatch",
 			input:      "apple\nbanana\ncherry\n",
-			notFilters: []string{"banana"},
+			excludes:   []string{"banana"},
 			wantOutput: "apple\ncherry\n",
 		},
 		{
-			name:       "-not-filter: MultipleMatches",
+			name:       "-exclude: MultipleMatches",
 			input:      "apple\nbanana\ncherry\n",
-			notFilters: []string{"apple", "cherry"},
+			excludes:   []string{"apple", "cherry"},
 			wantOutput: "banana\n",
 		},
 		{
-			name:       "-not-filter: NoMatch",
+			name:       "-exclude: NoMatch",
 			input:      "apple\nbanana\ncherry\n",
-			notFilters: []string{"date"},
+			excludes:   []string{"date"},
 			wantOutput: "apple\nbanana\ncherry\n",
 		},
 		{
-			name:       "-not-filter: EmptyInput",
+			name:       "-exclude: EmptyInput",
 			input:      "",
-			notFilters: []string{"apple"},
+			excludes:   []string{"apple"},
 			wantOutput: "",
 		},
 		{
 			name:       "provide filter and not filter",
 			input:      "apple\nbanana\napple cherry\ncherry\n",
 			filters:    []string{"apple"},
-			notFilters: []string{"cherry"},
+			excludes:   []string{"cherry"},
 			wantOutput: "apple\n",
 		},
 	}
@@ -318,13 +318,13 @@ func TestFilterProcess(t *testing.T) {
 				return
 			}
 
-			notFilters, err := cli.CompileRegexps(tt.notFilters)
+			excludes, err := cli.CompileRegexps(tt.excludes)
 			if err != nil {
 				t.Errorf("CompileRegexps() error = %v", err)
 				return
 			}
 
-			err = cl.FilterProcess(filters, notFilters)
+			err = cl.FilterProcess(filters, excludes)
 			if err != nil {
 				t.Errorf("filterProcess() error = %v", err)
 				return
