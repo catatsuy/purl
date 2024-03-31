@@ -38,6 +38,7 @@ type CLI struct {
 	filters     rawStrings
 	excludes    rawStrings
 	help        bool
+	color       bool
 }
 
 func NewCLI(outStream, errStream io.Writer, inputStream io.Reader) *CLI {
@@ -144,6 +145,7 @@ func (c *CLI) parseFlags(args []string) (*flag.FlagSet, error) {
 	flags.StringVar(&c.replaceExpr, "replace", "", `Replacement expression, e.g., "@search@replace@"`)
 	flags.Var(&c.filters, "filter", `filter expression`)
 	flags.Var(&c.excludes, "exclude", `exclude expression`)
+	flags.BoolVar(&c.color, "color", false, `Colorize output`)
 	flags.BoolVar(&c.help, "help", false, `Show help`)
 
 	flags.Usage = func() {
@@ -214,8 +216,14 @@ func (c *CLI) filterProcess(filters []*regexp.Regexp, excludes []*regexp.Regexp)
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		if (len(filters) == 0 || matchesFilters(line, filters)) && !matchesFilters(line, excludes) {
-			fmt.Fprintln(c.outStream, line)
+		hit, hitRe := matchesFilters(line, filters)
+		if len(filters) == 0 || hit {
+			if excludeHit, _ := matchesFilters(line, excludes); !excludeHit {
+				if hitRe != nil && (c.color || term.IsTerminal(int(os.Stdout.Fd()))) {
+					line = colorText(line, hitRe)
+				}
+				fmt.Fprintln(c.outStream, line)
+			}
 		}
 	}
 
@@ -238,11 +246,15 @@ func compileRegexps(rawPatterns []string) ([]*regexp.Regexp, error) {
 	return regexps, nil
 }
 
-func matchesFilters(line string, regexps []*regexp.Regexp) bool {
+func matchesFilters(line string, regexps []*regexp.Regexp) (bool, *regexp.Regexp) {
 	for _, re := range regexps {
 		if re.MatchString(line) {
-			return true
+			return true, re
 		}
 	}
-	return false
+	return false, nil
+}
+
+func colorText(line string, re *regexp.Regexp) string {
+	return re.ReplaceAllString(line, "\x1b[1m\x1b[91m$0\x1b[0m")
 }
