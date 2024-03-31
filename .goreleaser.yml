@@ -1,0 +1,19 @@
+project_name: purl
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - main: ./main.go
+    binary: purl
+    ldflags:
+      - -s -w
+      - -X github.com/catatsuy/purl/cli.Version=v{{.Version}}
+    env:
+      - CGO_ENABLED=0
+    goarch:
+      - amd64
+      - arm64
+archives:
+  - name_template: '{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}'
+release:
+  prerelease: auto
