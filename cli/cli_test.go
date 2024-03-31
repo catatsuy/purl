@@ -40,8 +40,13 @@ func TestRun_successProcess(t *testing.T) {
 		},
 		"color text": {
 			args:     []string{"purl", "-filter", "search", "-color"},
-			input:    "searchb searchc",
-			expected: "\x1b[1m\x1b[91msearch\x1b[0mb \x1b[1m\x1b[91msearch\x1b[0mc\n",
+			input:    "searchb\nreplace\nsearchc",
+			expected: "\x1b[1m\x1b[91msearch\x1b[0mb\n\x1b[1m\x1b[91msearch\x1b[0mc\n",
+		},
+		"no color text": {
+			args:     []string{"purl", "-filter", "search", "-no-color"},
+			input:    "searchb\nreplace\nsearchc",
+			expected: "searchb\nsearchc\n",
 		},
 	}
 
