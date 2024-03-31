@@ -82,6 +82,11 @@ func TestRun_success(t *testing.T) {
 			expectedCode: 0,
 		},
 		{
+			desc:         "version option",
+			args:         []string{"purl", "-version"},
+			expectedCode: 0,
+		},
+		{
 			desc:         "filter",
 			args:         []string{"purl", "-filter", "search"},
 			expectedCode: 0,

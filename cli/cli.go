@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"runtime"
+	"runtime/debug"
 
 	"golang.org/x/term"
 )
@@ -16,6 +18,22 @@ const (
 	ExitCodeParseFlagError = 1
 	ExitCodeFail           = 1
 )
+
+var (
+	Version string
+)
+
+func version() string {
+	if Version != "" {
+		return Version
+	}
+
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return "(devel)"
+	}
+	return info.Main.Version
+}
 
 type rawStrings []string
 
@@ -39,10 +57,13 @@ type CLI struct {
 	excludes    rawStrings
 	help        bool
 	color       bool
+	version     bool
+
+	appVersion string
 }
 
 func NewCLI(outStream, errStream io.Writer, inputStream io.Reader) *CLI {
-	return &CLI{outStream: outStream, errStream: errStream, inputStream: inputStream}
+	return &CLI{appVersion: version(), outStream: outStream, errStream: errStream, inputStream: inputStream}
 }
 
 func (c *CLI) Run(args []string) int {
@@ -50,6 +71,11 @@ func (c *CLI) Run(args []string) int {
 	if err != nil {
 		fmt.Fprintf(c.errStream, "Failed to parse flags: %s\n", err)
 		return ExitCodeParseFlagError
+	}
+
+	if c.version {
+		fmt.Fprintf(c.errStream, "purl version %s; %s\n", c.appVersion, runtime.Version())
+		return ExitCodeOK
 	}
 
 	if c.help {
@@ -150,9 +176,10 @@ func (c *CLI) parseFlags(args []string) (*flag.FlagSet, error) {
 	flags.BoolVar(&c.color, "color", false, "Colored output. Default auto.")
 	flags.BoolVar(&noColor, "no-color", false, "Disable colored output.")
 	flags.BoolVar(&c.help, "help", false, `Show help`)
+	flags.BoolVar(&c.version, "version", false, "Print version and quit")
 
 	flags.Usage = func() {
-		fmt.Fprintln(c.errStream, "Usage: purl [options] [file]")
+		fmt.Fprintf(c.errStream, "purl version %s; %s\nUsage: purl [options] [file]\n", c.appVersion, runtime.Version())
 		flags.PrintDefaults()
 	}
 
