@@ -143,12 +143,12 @@ func (c *CLI) parseFlags(args []string) (*flag.FlagSet, error) {
 
 	var noColor bool
 
-	flags.BoolVar(&c.isOverwrite, "overwrite", false, "overwrite the file in place")
-	flags.StringVar(&c.replaceExpr, "replace", "", `Replacement expression, e.g., "@search@replace@"`)
-	flags.Var(&c.filters, "filter", `filter expression`)
-	flags.Var(&c.excludes, "exclude", `exclude expression`)
-	flags.BoolVar(&c.color, "color", false, `Colorize output`)
-	flags.BoolVar(&noColor, "no-color", false, `Disable colorize output`)
+	flags.BoolVar(&c.isOverwrite, "overwrite", false, "Replace original file with results.")
+	flags.StringVar(&c.replaceExpr, "replace", "", "Format: '@match@replacement@'.")
+	flags.Var(&c.filters, "filter", "Apply search refinement.")
+	flags.Var(&c.excludes, "exclude", "Exclude lines matching regex.")
+	flags.BoolVar(&c.color, "color", false, "Colored output. Default auto.")
+	flags.BoolVar(&noColor, "no-color", false, "Disable colored output.")
 	flags.BoolVar(&c.help, "help", false, `Show help`)
 
 	flags.Usage = func() {
