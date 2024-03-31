@@ -298,10 +298,10 @@ func TestFilterProcess(t *testing.T) {
 		},
 		{
 			name:       "provide filter and not filter",
-			input:      "apple\nbanana\ncherry\n",
+			input:      "apple\nbanana\napple cherry\ncherry\n",
 			filters:    []string{"apple"},
 			notFilters: []string{"cherry"},
-			wantOutput: "apple\nbanana\n",
+			wantOutput: "apple\n",
 		},
 	}
 
