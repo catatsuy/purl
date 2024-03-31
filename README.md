@@ -16,6 +16,7 @@ Purl is a versatile text processing tool designed to easily and efficiently modi
 - **`-replace`**: This option requires a replacement expression to specify the text you intend to change. Format your command as "@search@replace@", with "search" being the text to find and "replace" the text to insert.
 - **`-color`** and **`-no-color`**: By default, Purl's output colorization is set to auto, determining the best mode based on your environment. Use `-no-color` if you prefer the output without colorization, regardless of the environment.
 - **`-help`**: Display information about Purl and its various options.
+- **`-version`**: Display version.
 
 ## Usage Examples
 
