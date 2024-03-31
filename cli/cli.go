@@ -214,7 +214,7 @@ func (c *CLI) filterProcess(filters []*regexp.Regexp, notFilters []*regexp.Regex
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		if matchesFilters(line, filters) || (len(notFilters) > 0 && !matchesFilters(line, notFilters)) {
+		if (len(filters) == 0 || matchesFilters(line, filters)) && !matchesFilters(line, notFilters) {
 			fmt.Fprintln(c.outStream, line)
 		}
 	}
