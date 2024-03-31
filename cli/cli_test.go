@@ -38,6 +38,11 @@ func TestRun_successProcess(t *testing.T) {
 			args:     []string{"purl", "-replace", "@search@replacement@", "testdata/test.txt"},
 			expected: "replacementa replacementb\n",
 		},
+		"color text": {
+			args:     []string{"purl", "-filter", "search", "-color"},
+			input:    "searchb searchc",
+			expected: "\x1b[1m\x1b[91msearch\x1b[0mb \x1b[1m\x1b[91msearch\x1b[0mc\n",
+		},
 	}
 
 	for name, test := range tests {
