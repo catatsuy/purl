@@ -141,11 +141,14 @@ func (c *CLI) parseFlags(args []string) (*flag.FlagSet, error) {
 	flags := flag.NewFlagSet("purl", flag.ContinueOnError)
 	flags.SetOutput(c.errStream)
 
+	var noColor bool
+
 	flags.BoolVar(&c.isOverwrite, "overwrite", false, "overwrite the file in place")
 	flags.StringVar(&c.replaceExpr, "replace", "", `Replacement expression, e.g., "@search@replace@"`)
 	flags.Var(&c.filters, "filter", `filter expression`)
 	flags.Var(&c.excludes, "exclude", `exclude expression`)
 	flags.BoolVar(&c.color, "color", false, `Colorize output`)
+	flags.BoolVar(&noColor, "no-color", false, `Disable colorize output`)
 	flags.BoolVar(&c.help, "help", false, `Show help`)
 
 	flags.Usage = func() {
@@ -157,6 +160,8 @@ func (c *CLI) parseFlags(args []string) (*flag.FlagSet, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse flags: %w", err)
 	}
+
+	c.color = !noColor && (c.color || term.IsTerminal(int(os.Stdout.Fd())))
 
 	return flags, nil
 }
@@ -219,7 +224,7 @@ func (c *CLI) filterProcess(filters []*regexp.Regexp, excludes []*regexp.Regexp)
 		hit, hitRe := matchesFilters(line, filters)
 		if len(filters) == 0 || hit {
 			if excludeHit, _ := matchesFilters(line, excludes); !excludeHit {
-				if hitRe != nil && (c.color || term.IsTerminal(int(os.Stdout.Fd()))) {
+				if hitRe != nil && c.color {
 					line = colorText(line, hitRe)
 				}
 				fmt.Fprintln(c.outStream, line)
