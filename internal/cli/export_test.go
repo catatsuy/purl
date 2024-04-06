@@ -5,8 +5,8 @@ import (
 	"regexp"
 )
 
-func (c *CLI) ReplaceProcess(searchPattern string, replacement string, inputStream io.Reader) error {
-	return c.replaceProcess(searchPattern, replacement, inputStream)
+func (c *CLI) ReplaceProcess(searchRe *regexp.Regexp, replacement string, inputStream io.Reader) error {
+	return c.replaceProcess(searchRe, replacement, inputStream)
 }
 
 func (c *CLI) FilterProcess(filters []*regexp.Regexp, notFilters []*regexp.Regexp, inputStream io.Reader) error {

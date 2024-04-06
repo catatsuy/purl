@@ -3,6 +3,7 @@ package cli_test
 import (
 	"bytes"
 	"os"
+	"regexp"
 	"testing"
 
 	"github.com/catatsuy/purl/internal/cli"
@@ -329,7 +330,7 @@ func TestReplaceProcess_replace(t *testing.T) {
 
 	inputStream.WriteString("searchb searchc")
 
-	err := cl.ReplaceProcess("search", "replacement", inputStream)
+	err := cl.ReplaceProcess(regexp.MustCompile("search"), "replacement", inputStream)
 
 	if err != nil {
 		t.Errorf("Error=%q", err)
@@ -347,7 +348,7 @@ func TestReplaceProcess_noMatch(t *testing.T) {
 
 	inputStream.WriteString("no match")
 
-	err := cl.ReplaceProcess("search", "replacement", inputStream)
+	err := cl.ReplaceProcess(regexp.MustCompile("search"), "replacement", inputStream)
 
 	if err != nil {
 		t.Errorf("Error=%q", err)
