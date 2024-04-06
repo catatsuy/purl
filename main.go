@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/catatsuy/purl/cli"
+	"github.com/catatsuy/purl/internal/cli"
 )
 
 func main() {

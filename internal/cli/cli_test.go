@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/catatsuy/purl/cli"
+	"github.com/catatsuy/purl/internal/cli"
 )
 
 func TestNewCLI(t *testing.T) {
