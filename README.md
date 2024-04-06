@@ -1,22 +1,22 @@
 # Purl
 
-Purl is a versatile text processing tool designed to easily and efficiently modify and replace text in files or from standard input. Inspired by the action of purling in knitting and the sound of a flowing stream, "Purl" symbolizes the concept of seamless repetition and smooth progress. Just as purling creates a fabric through consistent patterns and the stream's flow produces a calming rhythm, Purl facilitates effortless and repeated transformations of text. Aimed at providing the smoothness and efficiency of Perl one-liners, it is perfect for those looking for a tool to handle text processing tasks with ease and precision.
+Purl is a command-line utility designed for text file parsing and manipulation, offering a modern alternative to traditional sed and perl one-liners. It features intuitive options for filtering, transforming, and managing text data. Importantly, Purl accepts both file input and standard input, providing flexibility for various workflows. Moreover, it supports multiple instances of the -filter and -exclude options, allowing users to apply complex patterns of search refinements and exclusions in a single command.
+
+Unlike sed, Purl works the same way on both Mac and Linux, without any compatibility issues. Simply download it to start using, offering a straightforward experience for text manipulation.
+
+## Inspiration Behind "Purl"
+
+The name "Purl" is inspired by the dual notion of the knitting technique and the serene sound of a flowing stream. In knitting, purling refers to a method that creates a smooth, continuous fabric through repetitive patterns. Similarly, the tranquil sound of a stream embodies a steady, uninterrupted flow. "Purl" reflects the tool's ability to facilitate seamless and efficient text transformations, echoing the rhythmic repetition of knitting and the natural flow of water. Aimed at mirroring the simplicity and effectiveness of Perl one-liners, Purl is designed for those seeking a tool that combines ease of use with the precision needed for complex text processing tasks.
 
 ## Features
 
-- **Auto Color Output by Default**: Purl automatically decides whether to colorize output based on the environment, enhancing readability. This auto-color feature aims to provide optimal visibility under various conditions without manual intervention.
-
-- **Overwrite Option**: By specifying the `-overwrite` option, you can direct Purl to apply changes directly to the files. This functionality is not enabled by default to allow full control over when and how files are modified.
-
-- **Flexible Input Options**: Purl accepts input either directly from specified files on the command line or through standard input, catering to a wide array of workflows and preferences.
-
-## Options
-
-- **`-overwrite`**: Use this option to enable Purl to overwrite the original files with the modified content. Without this option, Purl will display the results to standard output, leaving the original files unchanged.
-- **`-replace`**: This option requires a replacement expression to specify the text you intend to change. Format your command as "@search@replace@", with "search" being the text to find and "replace" the text to insert.
-- **`-color`** and **`-no-color`**: By default, Purl's output colorization is set to auto, determining the best mode based on your environment. Use `-no-color` if you prefer the output without colorization, regardless of the environment.
-- **`-help`**: Display information about Purl and its various options.
-- **`-version`**: Display version.
+- **Accepts Standard Input**: In addition to processing files, Purl can take input piped from other commands, expanding its usability.
+- **Flexible Exclusions**: Skip lines matching specified regular expressions, focusing on relevant data.
+- **Search Refinement**: Apply additional filters to your search queries for more precise results.
+- **Case Insensitivity**: Perform case-insensitive searches with a simple option, broadening your search capabilities.
+- **In-Place Editing**: Directly modify the original files with your changes, simplifying the workflow.
+- **Colored Output**: Enhance readability with optional colored output, automatically adjusted based on your terminal's capabilities.
+- **Custom Replacements**: Define custom replacement patterns for comprehensive text manipulation.
 
 ## Usage Examples
 
@@ -46,7 +46,85 @@ cat yourfile.txt | purl -replace "@search@replace@"
 
 This feeds the content of `yourfile.txt` into Purl, which processes and displays the modified text according to the specified replacement pattern.
 
-### Advanced Usage with Git Grep and Xargs
+### Using multiple files
+
+Purl supports processing multiple files in a single command, allowing you to apply operations across several documents simultaneously. Simply list the files at the end of your command. For example:
+
+```bash
+purl -replace "@search@replacement@" file1.txt file2.txt file3.txt
+```
+
+This command will apply the replace operation to 'search' with 'replacement' in `file1.txt`, `file2.txt`, and `file3.txt`.
+
+### Usage with `-filter`
+
+```bash
+purl -filter "error" yourlog.log
+```
+
+This command filters the lines containing "error" in `yourlog.log`, displaying them with colored output for better visibility.
+
+### Filtering Input with Multiple Criteria
+
+To filter lines that meet multiple criteria, you can use the `-filter` option multiple times. This works both when reading from a file and processing standard input.
+
+```bash
+purl -filter "error" -filter "warning" yourlog.log
+```
+
+Or for standard input:
+
+```bash
+cat yourlog.log | purl -filter "error" -filter "warning"
+```
+
+This will display lines that contain either "error" or "warning" from `yourlog.log`.
+
+### Excluding Lines with Multiple Patterns
+
+Similarly, you can exclude lines that match multiple patterns by specifying `-exclude` more than once:
+
+```bash
+purl -exclude "debug" -exclude "info" yourlog.log
+```
+
+Or for piped input:
+
+```bash
+cat yourlog.log | purl -exclude "debug" -exclude "info"
+```
+
+This approach excludes lines that contain "debug" or "info" from the output.
+
+Purl allows combining `-filter` and `-exclude` for precise text control.
+
+### Using the -i Option for Case-Insensitive Searches
+
+When the `-i` option is used with Purl, it allows case-insensitive matching for filters and exclusions. For instance:
+
+```bash
+purl -i -filter "error" yourfile.txt
+```
+
+This command will match lines containing 'error' in any case variation, such as 'Error', 'ERROR', or 'error', in `yourfile.txt`.
+
+The `-i` option in Purl enables case-insensitive operations not only for `-filter` but also for `-exclude` and `-replace`. This enhances flexibility in handling text variations. For example:
+
+```bash
+purl -i -exclude "debug" yourfile.txt
+```
+
+This will exclude lines with 'debug', 'Debug', 'DEBUG', etc., from `yourfile.txt`.
+
+Similarly, when using `-replace`:
+
+```bash
+purl -i -replace "@search@replacement@" yourfile.txt
+```
+
+This applies the replacement operation regardless of case differences between 'search' and its occurrences in `yourfile.txt`, ensuring 'Search', 'SEARCH', etc., are also matched and replaced.
+
+### Integrating with Git, Grep, and Xargs
 
 For users looking to apply replacements across multiple files in a Git repository:
 
