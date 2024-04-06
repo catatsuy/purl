@@ -4,7 +4,7 @@ all: bin/purl
 go.mod go.sum:
 	go mod tidy
 
-bin/purl: main.go cli/*.go go.mod go.sum
+bin/purl: main.go internal/cli/*.go go.mod go.sum
 	go build -ldflags "-X github.com/catatsuy/purl/cli.Version=`git rev-list HEAD -n1`" -o bin/purl main.go
 
 .PHONY: vet
