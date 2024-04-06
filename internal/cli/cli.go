@@ -107,8 +107,8 @@ func (c *CLI) Run(args []string) int {
 					fmt.Fprintf(c.errStream, "Failed to create temp file: %s\n", err)
 					return ExitCodeFail
 				}
-				defer tmpFile.Close()
 				defer os.Remove(tmpFile.Name())
+				defer tmpFile.Close()
 
 				c.outStream, err = os.Create(tmpFile.Name())
 				if err != nil {
