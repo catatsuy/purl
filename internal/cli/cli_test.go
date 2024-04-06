@@ -139,6 +139,74 @@ func TestRun_success(t *testing.T) {
 	}
 }
 
+func TestRun_successForOverwrite(t *testing.T) {
+	testCases := []struct {
+		desc         string
+		args         []string
+		filename     string
+		expected     string
+		expectedCode int
+	}{
+		{
+			desc:         "-overwrite and -replace option",
+			args:         []string{"purl", "-replace", "@search@replacement@", "-overwrite", "testdata/test_for_overwrite.txt"},
+			filename:     "test_for_overwrite.txt",
+			expected:     "replacemente replacementf\nnot not not\n",
+			expectedCode: 0,
+		},
+		{
+			desc:         "-overwrite and -filter option",
+			args:         []string{"purl", "-filter", "search", "-overwrite", "testdata/test_for_overwrite.txt"},
+			filename:     "test_for_overwrite.txt",
+			expected:     "searche searchf\n",
+			expectedCode: 0,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			testFilePath := "./testdata/" + tc.filename
+			backupFilePath := testFilePath + ".bak"
+
+			if err := copyFile(t, testFilePath, backupFilePath); err != nil {
+				t.Fatalf("failed to backup the test file: %v", err)
+			}
+
+			defer func() {
+				if err := os.Rename(backupFilePath, testFilePath); err != nil {
+					t.Fatalf("failed to restore the test file: %v", err)
+				}
+			}()
+
+			outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+			cl := cli.NewCLI(outStream, errStream, os.Stdin)
+
+			if got := cl.Run(tc.args); got != tc.expectedCode {
+				t.Fatalf("Expected exit code %d, but got %d; error: %q", tc.expectedCode, got, errStream.String())
+			}
+
+			b, err := os.ReadFile(testFilePath)
+			if err != nil {
+				t.Fatalf("failed to read the test file: %v", err)
+			}
+
+			if string(b) != tc.expected {
+				t.Errorf("Output=%q, want %q; error: %q", string(b), tc.expected, errStream.String())
+			}
+		})
+	}
+}
+
+func copyFile(t *testing.T, src, dst string) error {
+	t.Helper()
+	input, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(dst, input, 0644)
+}
+
 func TestRun_failToProvideStdin(t *testing.T) {
 	testCases := []struct {
 		desc         string
