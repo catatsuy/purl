@@ -284,11 +284,11 @@ func (c *CLI) filterProcess(filters []*regexp.Regexp, excludes []*regexp.Regexp,
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		hit, hitRe := matchesFilters(line, filters)
+		hit, hitRes := matchesFilters(line, filters)
 		if len(filters) == 0 || hit {
 			if excludeHit, _ := matchesFilters(line, excludes); !excludeHit {
-				if hitRe != nil && c.color {
-					line = colorText(line, hitRe)
+				if len(hitRes) > 0 && c.color {
+					line = colorText(line, hitRes)
 				}
 				fmt.Fprintln(c.outStream, line)
 			}
@@ -317,15 +317,19 @@ func compileRegexps(rawPatterns []string, ignoreCase bool) ([]*regexp.Regexp, er
 	return regexps, nil
 }
 
-func matchesFilters(line string, regexps []*regexp.Regexp) (bool, *regexp.Regexp) {
+func matchesFilters(line string, regexps []*regexp.Regexp) (bool, []*regexp.Regexp) {
+	var matchedRegexps []*regexp.Regexp
 	for _, re := range regexps {
 		if re.MatchString(line) {
-			return true, re
+			matchedRegexps = append(matchedRegexps, re)
 		}
 	}
-	return false, nil
+	return len(matchedRegexps) > 0, matchedRegexps
 }
 
-func colorText(line string, re *regexp.Regexp) string {
-	return re.ReplaceAllString(line, "\x1b[1m\x1b[91m$0\x1b[0m")
+func colorText(line string, res []*regexp.Regexp) string {
+	for _, re := range res {
+		line = re.ReplaceAllString(line, "\x1b[1m\x1b[91m$0\x1b[0m")
+	}
+	return line
 }
