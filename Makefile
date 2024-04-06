@@ -19,6 +19,11 @@ staticcheck:
 test:
 	go test -cover -v ./...
 
+.PHONY: cover
+cover:
+	go test -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out
+
 .PHONY: clean
 clean:
 	rm -rf bin/*

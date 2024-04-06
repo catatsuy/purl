@@ -13,6 +13,6 @@ func (c *CLI) FilterProcess(filters []*regexp.Regexp, notFilters []*regexp.Regex
 	return c.filterProcess(filters, notFilters, inputStream)
 }
 
-func CompileRegexps(rawPatterns []string) ([]*regexp.Regexp, error) {
-	return compileRegexps(rawPatterns)
+func CompileRegexps(rawPatterns []string, ignoreCase bool) ([]*regexp.Regexp, error) {
+	return compileRegexps(rawPatterns, ignoreCase)
 }
