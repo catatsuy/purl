@@ -36,6 +36,22 @@ make
 
 If you use the `make` command to build and install the 'purl' tool, the output of the `purl -version` command will be the git commit ID of the current version.
 
+### Using Purl with GitHub Actions
+
+If you want to use Purl in your GitHub Actions workflows, include the following steps in your `.github/workflows` YAML file:
+
+```yaml
+- name: Download purl
+  run: |
+    curl -sL https://github.com/catatsuy/purl/releases/latest/download/purl-linux-amd64.tar.gz | tar xz -C /tmp
+
+- name: Move purl to /usr/local/bin
+  run: |
+    sudo mv /tmp/purl /usr/local/bin/
+```
+
+These steps ensure that Purl is downloaded and moved to `/usr/local/bin`, making it available for use in subsequent steps of your workflow.
+
 ## Usage Examples
 
 ### Preview Changes Before Applying
