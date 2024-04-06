@@ -18,6 +18,24 @@ The name "Purl" is inspired by the dual notion of the knitting technique and the
 - **Colored Output**: Enhance readability with optional colored output, automatically adjusted based on your terminal's capabilities.
 - **Custom Replacements**: Define custom replacement patterns for comprehensive text manipulation.
 
+## Installation
+
+It is recommended that you use the binaries available on [GitHub Releases](https://github.com/catatsuy/purl/releases). It is advisable to download and use the latest version.
+
+If you have a Go language development environment set up, you can also compile and install the 'purl' tools on your own.
+
+```bash
+go install github.com/catatsuy/purl@latest
+```
+
+To build and modify the 'purl' tools for development purposes, you can use the `make` command.
+
+```bash
+make
+```
+
+If you use the `make` command to build and install the 'purl' tool, the output of the `purl -version` command will be the git commit ID of the current version.
+
 ## Usage Examples
 
 ### Preview Changes Before Applying
