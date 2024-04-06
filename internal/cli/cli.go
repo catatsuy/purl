@@ -50,7 +50,7 @@ type CLI struct {
 	outStream, errStream io.Writer
 	inputStream          io.Reader
 
-	filePath    string
+	filePaths   []string
 	replaceExpr string
 	isOverwrite bool
 	filters     rawStrings
@@ -89,74 +89,110 @@ func (c *CLI) Run(args []string) int {
 		return ExitCodeFail
 	}
 
-	if c.filePath != "" {
-		file, err := os.Open(c.filePath)
-		if err != nil {
-			fmt.Fprintf(c.errStream, "Failed to open file: %s\n", err)
-			return ExitCodeFail
+	if len(c.filePaths) != 0 {
+		for _, filePath := range c.filePaths {
+
+			file, err := os.Open(filePath)
+			if err != nil {
+				fmt.Fprintf(c.errStream, "Failed to open file: %s\n", err)
+				return ExitCodeFail
+			}
+			defer file.Close()
+
+			var tmpFile *os.File
+
+			if c.isOverwrite {
+				tmpFile, err = os.CreateTemp("", "purl")
+				if err != nil {
+					fmt.Fprintf(c.errStream, "Failed to create temp file: %s\n", err)
+					return ExitCodeFail
+				}
+				defer tmpFile.Close()
+				defer os.Remove(tmpFile.Name())
+
+				c.outStream, err = os.Create(tmpFile.Name())
+				if err != nil {
+					fmt.Fprintf(c.errStream, "Failed to open file for writing: %s\n", err)
+					return ExitCodeFail
+				}
+			}
+
+			if len(c.replaceExpr) > 0 {
+				delimiter := string(c.replaceExpr[0])
+				parts := regexp.MustCompile(regexp.QuoteMeta(delimiter)).Split(c.replaceExpr[1:], -1)
+				if len(parts) < 2 {
+					fmt.Fprintln(c.errStream, "Invalid replace expression format. Use \"@search@replace@\"")
+					return ExitCodeFail
+				}
+				searchPattern, replacement := parts[0], parts[1]
+
+				if err := c.replaceProcess(searchPattern, replacement, file); err != nil {
+					fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
+					return ExitCodeFail
+				}
+			}
+
+			if len(c.filters) > 0 || len(c.excludes) > 0 {
+				filters, err := compileRegexps(c.filters)
+				if err != nil {
+					fmt.Fprintf(c.errStream, "Failed to compile regex patterns: %s\n", err)
+					return ExitCodeFail
+				}
+
+				excludes, err := compileRegexps(c.excludes)
+				if err != nil {
+					fmt.Fprintf(c.errStream, "Failed to compile regex patterns: %s\n", err)
+					return ExitCodeFail
+				}
+
+				err = c.filterProcess(filters, excludes, file)
+				if err != nil {
+					fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
+					return ExitCodeFail
+				}
+			}
+
+			if c.isOverwrite {
+				if err := os.Rename(tmpFile.Name(), filePath); err != nil {
+					fmt.Fprintf(c.errStream, "Failed to overwrite the original file: %s\n", err)
+					return ExitCodeFail
+				}
+			}
 		}
-		defer file.Close()
+	} else {
+		if len(c.replaceExpr) > 0 {
+			delimiter := string(c.replaceExpr[0])
+			parts := regexp.MustCompile(regexp.QuoteMeta(delimiter)).Split(c.replaceExpr[1:], -1)
+			if len(parts) < 2 {
+				fmt.Fprintln(c.errStream, "Invalid replace expression format. Use \"@search@replace@\"")
+				return ExitCodeFail
+			}
+			searchPattern, replacement := parts[0], parts[1]
 
-		c.inputStream = file
-	}
-
-	var tmpFile *os.File
-
-	if c.isOverwrite {
-		tmpFile, err = os.CreateTemp("", "purl")
-		if err != nil {
-			fmt.Fprintf(c.errStream, "Failed to create temp file: %s\n", err)
-			return ExitCodeFail
-		}
-		defer tmpFile.Close()
-		defer os.Remove(tmpFile.Name())
-
-		c.outStream, err = os.Create(tmpFile.Name())
-		if err != nil {
-			fmt.Fprintf(c.errStream, "Failed to open file for writing: %s\n", err)
-			return ExitCodeFail
-		}
-	}
-
-	if len(c.replaceExpr) > 0 {
-		delimiter := string(c.replaceExpr[0])
-		parts := regexp.MustCompile(regexp.QuoteMeta(delimiter)).Split(c.replaceExpr[1:], -1)
-		if len(parts) < 2 {
-			fmt.Fprintln(c.errStream, "Invalid replace expression format. Use \"@search@replace@\"")
-			return ExitCodeFail
-		}
-		searchPattern, replacement := parts[0], parts[1]
-
-		if err := c.replaceProcess(searchPattern, replacement); err != nil {
-			fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
-			return ExitCodeFail
-		}
-	}
-
-	if len(c.filters) > 0 || len(c.excludes) > 0 {
-		filters, err := compileRegexps(c.filters)
-		if err != nil {
-			fmt.Fprintf(c.errStream, "Failed to compile regex patterns: %s\n", err)
-			return ExitCodeFail
+			if err := c.replaceProcess(searchPattern, replacement, c.inputStream); err != nil {
+				fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
+				return ExitCodeFail
+			}
 		}
 
-		excludes, err := compileRegexps(c.excludes)
-		if err != nil {
-			fmt.Fprintf(c.errStream, "Failed to compile regex patterns: %s\n", err)
-			return ExitCodeFail
-		}
+		if len(c.filters) > 0 || len(c.excludes) > 0 {
+			filters, err := compileRegexps(c.filters)
+			if err != nil {
+				fmt.Fprintf(c.errStream, "Failed to compile regex patterns: %s\n", err)
+				return ExitCodeFail
+			}
 
-		err = c.filterProcess(filters, excludes)
-		if err != nil {
-			fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
-			return ExitCodeFail
-		}
-	}
+			excludes, err := compileRegexps(c.excludes)
+			if err != nil {
+				fmt.Fprintf(c.errStream, "Failed to compile regex patterns: %s\n", err)
+				return ExitCodeFail
+			}
 
-	if c.isOverwrite {
-		if err := os.Rename(tmpFile.Name(), c.filePath); err != nil {
-			fmt.Fprintf(c.errStream, "Failed to overwrite the original file: %s\n", err)
-			return ExitCodeFail
+			err = c.filterProcess(filters, excludes, c.inputStream)
+			if err != nil {
+				fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
+				return ExitCodeFail
+			}
 		}
 	}
 
@@ -214,16 +250,19 @@ func (c *CLI) validateInput(flags *flag.FlagSet) error {
 		return nil
 	}
 
-	c.filePath = flags.Arg(0)
-	if _, err := os.Stat(c.filePath); os.IsNotExist(err) {
-		return fmt.Errorf("input file does not exist")
+	c.filePaths = flags.Args()
+
+	for _, filePath := range c.filePaths {
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			return fmt.Errorf("input file does not exist")
+		}
 	}
 
 	return nil
 }
 
-func (c *CLI) replaceProcess(searchPattern, replacement string) error {
-	scanner := bufio.NewScanner(c.inputStream)
+func (c *CLI) replaceProcess(searchPattern, replacement string, inputStream io.Reader) error {
+	scanner := bufio.NewScanner(inputStream)
 
 	re, err := regexp.Compile(searchPattern)
 	if err != nil {
@@ -243,8 +282,8 @@ func (c *CLI) replaceProcess(searchPattern, replacement string) error {
 	return nil
 }
 
-func (c *CLI) filterProcess(filters []*regexp.Regexp, excludes []*regexp.Regexp) error {
-	scanner := bufio.NewScanner(c.inputStream)
+func (c *CLI) filterProcess(filters []*regexp.Regexp, excludes []*regexp.Regexp, inputStream io.Reader) error {
+	scanner := bufio.NewScanner(inputStream)
 
 	for scanner.Scan() {
 		line := scanner.Text()
