@@ -57,6 +57,7 @@ type CLI struct {
 	excludes    rawStrings
 	help        bool
 	color       bool
+	ignoreCase  bool
 	version     bool
 
 	appVersion string
@@ -126,6 +127,10 @@ func (c *CLI) Run(args []string) int {
 				}
 				searchPattern, replacement := parts[0], parts[1]
 
+				if c.ignoreCase {
+					searchPattern = "(?i)" + searchPattern
+				}
+
 				if err := c.replaceProcess(searchPattern, replacement, file); err != nil {
 					fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
 					return ExitCodeFail
@@ -133,13 +138,13 @@ func (c *CLI) Run(args []string) int {
 			}
 
 			if len(c.filters) > 0 || len(c.excludes) > 0 {
-				filters, err := compileRegexps(c.filters)
+				filters, err := compileRegexps(c.filters, c.ignoreCase)
 				if err != nil {
 					fmt.Fprintf(c.errStream, "Failed to compile regex patterns: %s\n", err)
 					return ExitCodeFail
 				}
 
-				excludes, err := compileRegexps(c.excludes)
+				excludes, err := compileRegexps(c.excludes, c.ignoreCase)
 				if err != nil {
 					fmt.Fprintf(c.errStream, "Failed to compile regex patterns: %s\n", err)
 					return ExitCodeFail
@@ -169,6 +174,10 @@ func (c *CLI) Run(args []string) int {
 			}
 			searchPattern, replacement := parts[0], parts[1]
 
+			if c.ignoreCase {
+				searchPattern = "(?i)" + searchPattern
+			}
+
 			if err := c.replaceProcess(searchPattern, replacement, c.inputStream); err != nil {
 				fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
 				return ExitCodeFail
@@ -176,13 +185,13 @@ func (c *CLI) Run(args []string) int {
 		}
 
 		if len(c.filters) > 0 || len(c.excludes) > 0 {
-			filters, err := compileRegexps(c.filters)
+			filters, err := compileRegexps(c.filters, c.ignoreCase)
 			if err != nil {
 				fmt.Fprintf(c.errStream, "Failed to compile regex patterns: %s\n", err)
 				return ExitCodeFail
 			}
 
-			excludes, err := compileRegexps(c.excludes)
+			excludes, err := compileRegexps(c.excludes, c.ignoreCase)
 			if err != nil {
 				fmt.Fprintf(c.errStream, "Failed to compile regex patterns: %s\n", err)
 				return ExitCodeFail
@@ -211,6 +220,7 @@ func (c *CLI) parseFlags(args []string) (*flag.FlagSet, error) {
 	flags.Var(&c.excludes, "exclude", "Exclude lines matching regex.")
 	flags.BoolVar(&c.color, "color", false, "Colored output. Default auto.")
 	flags.BoolVar(&noColor, "no-color", false, "Disable colored output.")
+	flags.BoolVar(&c.ignoreCase, "i", false, `Ignore case (prefixes '(?i)' to all regular expressions)`)
 	flags.BoolVar(&c.help, "help", false, `Show help`)
 	flags.BoolVar(&c.version, "version", false, "Print version and quit")
 
@@ -305,9 +315,12 @@ func (c *CLI) filterProcess(filters []*regexp.Regexp, excludes []*regexp.Regexp,
 	return nil
 }
 
-func compileRegexps(rawPatterns []string) ([]*regexp.Regexp, error) {
+func compileRegexps(rawPatterns []string, ignoreCase bool) ([]*regexp.Regexp, error) {
 	regexps := make([]*regexp.Regexp, 0, len(rawPatterns))
 	for _, pattern := range rawPatterns {
+		if ignoreCase {
+			pattern = "(?i)" + pattern
+		}
 		re, err := regexp.Compile(pattern)
 		if err != nil {
 			return nil, fmt.Errorf("invalid regex pattern: %w", err)

@@ -36,11 +36,24 @@ func TestRun_successProcess(t *testing.T) {
 		},
 		"provide file": {
 			args:     []string{"purl", "-replace", "@search@replacement@", "testdata/test.txt"},
-			expected: "replacementa replacementb\n",
+			expected: "replacementa replacementb\nSearcha Searchb\n",
 		},
 		"provide multiple files for replace": {
 			args:     []string{"purl", "-replace", "@search@replacement@", "testdata/test.txt", "testdata/testa.txt"},
-			expected: "replacementa replacementb\nreplacementc replacementd\nnot not not\n",
+			expected: "replacementa replacementb\nSearcha Searchb\nreplacementc replacementd\nnot not not\n",
+		},
+		"provide file for ignore case": {
+			args:     []string{"purl", "-i", "-replace", "@search@replacement@", "testdata/test.txt"},
+			expected: "replacementa replacementb\nreplacementa replacementb\n",
+		},
+		"provide multiple files for ignore case": {
+			args:     []string{"purl", "-i", "-replace", "@search@replacement@", "testdata/test.txt", "testdata/testa.txt"},
+			expected: "replacementa replacementb\nreplacementa replacementb\nreplacementc replacementd\nnot not not\n",
+		},
+		"provide stdin for ignore case": {
+			args:     []string{"purl", "-i", "-replace", "@search@replacement@"},
+			input:    "searcha Search\nsearchc Searchd\n",
+			expected: "replacementa replacement\nreplacementc replacementd\n",
 		},
 		"provide multiple files for filter": {
 			args:     []string{"purl", "-filter", "search", "testdata/test.txt", "testdata/testa.txt"},
@@ -348,14 +361,21 @@ func TestReplaceProcess_noMatch(t *testing.T) {
 
 func TestCompileRegexps(t *testing.T) {
 	tests := []struct {
-		name      string
-		patterns  []string
-		wantError bool
+		name       string
+		patterns   []string
+		ignoreCase bool
+		wantError  bool
 	}{
 		{
 			name:      "ValidPatterns",
 			patterns:  []string{"^test", "end$", "[0-9]+"},
 			wantError: false,
+		},
+		{
+			name:       "ValidPatterns for ignore case",
+			patterns:   []string{"^test", "end$", "[0-9]+"},
+			ignoreCase: true,
+			wantError:  false,
 		},
 		{
 			name:      "InvalidPattern",
@@ -376,7 +396,7 @@ func TestCompileRegexps(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := cli.CompileRegexps(tt.patterns)
+			got, err := cli.CompileRegexps(tt.patterns, tt.ignoreCase)
 			if tt.wantError {
 				if err == nil {
 					t.Errorf("%s: expected an error but got none", tt.name)
@@ -465,13 +485,13 @@ func TestFilterProcess(t *testing.T) {
 			cl := cli.NewCLI(outStream, errStream, inputStream)
 			inputStream.WriteString(tt.input)
 
-			filters, err := cli.CompileRegexps(tt.filters)
+			filters, err := cli.CompileRegexps(tt.filters, false)
 			if err != nil {
 				t.Errorf("CompileRegexps() error = %v", err)
 				return
 			}
 
-			excludes, err := cli.CompileRegexps(tt.excludes)
+			excludes, err := cli.CompileRegexps(tt.excludes, false)
 			if err != nil {
 				t.Errorf("CompileRegexps() error = %v", err)
 				return
