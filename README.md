@@ -14,9 +14,15 @@ Purl is a handy tool that can replace `sed` and `grep` for many tasks. It uses G
 
 ## demo
 
+This demo highlights how Purl utilizes both `-filter` and `-exclude` options to pinpoint essential lines within a log file, streamlining the search for relevant data.
+
 https://github.com/catatsuy/purl/assets/1249910/72c01b33-082f-4b7f-84bc-4c59b0859df9
 
+This demo shows how to use Purl to change `http://` URLs to `https://` in a source code file, using the `-replace` and `-overwrite` options to update the file directly.
+
 https://github.com/catatsuy/purl/assets/1249910/be87d17a-44e7-4091-bc80-77921174eac2
+
+This demo demonstrates using Purl to remove comments and empty lines from a configuration file, employing both `-filter` and `-exclude` options along with `-overwrite` to directly modify the file.
 
 https://github.com/catatsuy/purl/assets/1249910/77bdd84e-45be-4dc2-9890-077cd6f9210d
 
