@@ -1,0 +1,27 @@
+
+# Sample configuration file with comments describing the settings below
+
+# Network settings
+network:
+  # IP address
+  ip: 192.168.1.1
+  # Subnet mask
+  subnet: 255.255.255.0
+
+# User settings
+user:
+  # User name
+  name: admin
+  # Password
+  password: admin123
+
+# Database settings
+database:
+  # Database host
+  host: localhost
+  # Database port
+  port: 3306
+  # Database username
+  username: dbuser
+  # Database password
+  password: dbpassword

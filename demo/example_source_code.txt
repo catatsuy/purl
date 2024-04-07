@@ -1,0 +1,14 @@
+// Sample source code with HTTP URLs
+const baseUrl = "http://example.com/api/data";
+fetch(baseUrl + "/users")
+  .then(response => response.json())
+  .then(data => console.log(data))
+  .catch(error => console.error("Error fetching data:", error));
+
+// Another example with embedded URL
+function getData() {
+  return "http://example.com/api/values";
+}
+
+// A comment with URL
+// Visit http://example.com for more information
