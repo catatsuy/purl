@@ -12,6 +12,14 @@ The name "Purl" is inspired by the dual notion of the knitting technique and the
 
 Purl is a handy tool that can replace `sed` and `grep` for many tasks. It uses Go's regexp for regular expressions, which offers similar capabilities to PCRE but is not fully compatible. This means you get a powerful tool for text processing that works well on both Mac and Linux without worrying about differences between these systems. Moreover, Purl is easy to start using: just download and run. It's designed to be simple and efficient for anyone who needs to manipulate text.
 
+## demo
+
+https://github.com/catatsuy/purl/assets/1249910/72c01b33-082f-4b7f-84bc-4c59b0859df9
+
+https://github.com/catatsuy/purl/assets/1249910/be87d17a-44e7-4091-bc80-77921174eac2
+
+https://github.com/catatsuy/purl/assets/1249910/77bdd84e-45be-4dc2-9890-077cd6f9210d
+
 ## Features
 
 - **Accepts Standard Input**: In addition to processing files, Purl can take input piped from other commands, expanding its usability.
