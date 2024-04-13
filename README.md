@@ -6,11 +6,29 @@ Unlike sed, Purl works the same way on both Mac and Linux, without any compatibi
 
 ## Inspiration Behind "Purl"
 
-The name "Purl" is inspired by the dual notion of the knitting technique and the serene sound of a flowing stream. In knitting, purling refers to a method that creates a smooth, continuous fabric through repetitive patterns. Similarly, the tranquil sound of a stream embodies a steady, uninterrupted flow. "Purl" reflects the tool's ability to facilitate seamless and efficient text transformations, echoing the rhythmic repetition of knitting and the natural flow of water. Aimed at mirroring the simplicity and effectiveness of Perl one-liners, Purl is designed for those seeking a tool that combines ease of use with the precision needed for complex text processing tasks.
+The name "Purl" comes from a knitting technique and the sound of a flowing river. In knitting, "purling" is a way to create smooth fabric by repeating certain stitches. Similarly, the sound of a river is continuous and calming. "Purl" represents how this tool helps you transform text smoothly, just like the consistent pattern of knitting and the steady flow of a river. It is designed to use simple commands like Perl to make complex text tasks easy.
 
-## Why Choose Purl?
+## Why purl?
 
-Purl is a handy tool that can replace `sed` and `grep` for many tasks. It uses Go's regexp for regular expressions, which offers similar capabilities to PCRE but is not fully compatible. This means you get a powerful tool for text processing that works well on both Mac and Linux without worrying about differences between these systems. Moreover, Purl is easy to start using: just download and run. It's designed to be simple and efficient for anyone who needs to manipulate text.
+Older tools like sed and grep have problems:
+
+- **Complex Regex**: They use a regex that is not like Perl's, which is hard to use.
+- **Not Compatible**: sed does not work the same on macOS and Linux, leading to problems.
+
+I used Perl before because it is easier for regex and works well on different systems. But Perl has issues too:
+
+- **Not Installed by Default**: New versions of macOS and Linux do not have Perl already installed, which makes it hard to use, especially in Docker.
+- **Less Popular**: Fewer people use Perl now, so it seems less appealing.
+- **Not Just for One-Liners**: Perl is not just for quick commands, which can make it confusing.
+
+We need a new tool that:
+
+- **Uses Easy Perl-Like Regex**: Easy to use for handling text using Go's regexp.
+- **Works on All Systems**: No problems with different operating systems.
+- **Light and Easy to Install**: Easy to set up anywhere.
+- **Simple Commands**: Easy to understand, even for beginners.
+
+So, I made **purl**. It brings together Perl's best parts but is simpler and ready for today's users.
 
 ## demo
 
@@ -28,13 +46,14 @@ https://github.com/catatsuy/purl/assets/1249910/77bdd84e-45be-4dc2-9890-077cd6f9
 
 ## Features
 
-- **Accepts Standard Input**: In addition to processing files, Purl can take input piped from other commands, expanding its usability.
-- **Flexible Exclusions**: Skip lines matching specified regular expressions, focusing on relevant data.
-- **Search Refinement**: Apply additional filters to your search queries for more precise results.
-- **Case Insensitivity**: Perform case-insensitive searches with a simple option, broadening your search capabilities.
-- **In-Place Editing**: Directly modify the original files with your changes, simplifying the workflow.
-- **Colored Output**: Enhance readability with optional colored output, automatically adjusted based on your terminal's capabilities.
-- **Custom Replacements**: Define custom replacement patterns for comprehensive text manipulation.
+**purl** is a tool that helps you easily handle data from different sources. Here are its main features:
+
+- **Flexible Data Input and Output**: You can input data from typing directly or from files. Similarly, you can choose to output data directly to your screen or save it back to files.
+- **Simple Commands**: Use straightforward options like `-replace`, `-filter`, and `-exclude` to manage your data.
+- **Edit Files Easily**: The `-overwrite` option lets you update files directly, making changes quick and simple.
+- **Colorful Output**: When using the `-filter` option, the output on your screen can be colorful. You can control this with the `-color` or `-no-color` options.
+
+This tool is made to be user-friendly and effective for different data handling tasks.
 
 ## Installation
 
