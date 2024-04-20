@@ -206,3 +206,21 @@ git grep -l 'search_pattern' | xargs purl -overwrite -replace "@search_pattern@r
 This sequence finds all files containing 'search_pattern', then uses Purl to replace it with 'replace_text', directly modifying the files where the changes are applied.
 
 Purl is crafted to offer simplicity for quick tasks as well as the capability to perform complex text processing, embodying the spirit of its name in every action it performs.
+
+## FAQ
+
+### What can I do with regular expressions?
+
+This tool uses Go's [`regexp` package](https://pkg.go.dev/regexp) directly. So, any pattern supported by Go's regular expressions can be used.
+
+### Can I use characters other than '@' in the `-replace` option?
+
+Yes, you can use different characters besides '@' for the `-replace` option. You just need to make sure the character you choose is not in your pattern or replacement.
+
+If you want to use a different character, like '#', you can do it like this:
+
+```bash
+purl -replace "#pattern#replacement#" file.txt
+```
+
+Be sure your character is not part of your pattern or replacement text.
