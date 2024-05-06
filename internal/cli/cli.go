@@ -9,8 +9,6 @@ import (
 	"regexp"
 	"runtime"
 	"runtime/debug"
-
-	"golang.org/x/term"
 )
 
 const (
@@ -50,21 +48,24 @@ type CLI struct {
 	outStream, errStream io.Writer
 	inputStream          io.Reader
 
+	isStdinTerminal  bool
+	isStdoutTerminal bool
+
 	filePaths   []string
 	replaceExpr string
 	isOverwrite bool
 	filters     rawStrings
 	excludes    rawStrings
 	help        bool
-	color       bool
+	isColor     bool
 	ignoreCase  bool
 	version     bool
 
 	appVersion string
 }
 
-func NewCLI(outStream, errStream io.Writer, inputStream io.Reader) *CLI {
-	return &CLI{appVersion: version(), outStream: outStream, errStream: errStream, inputStream: inputStream}
+func NewCLI(outStream, errStream io.Writer, inputStream io.Reader, isStdinTerminal, isStdoutTerminal bool) *CLI {
+	return &CLI{appVersion: version(), outStream: outStream, errStream: errStream, inputStream: inputStream, isStdinTerminal: isStdinTerminal, isStdoutTerminal: isStdoutTerminal}
 }
 
 func (c *CLI) Run(args []string) int {
@@ -204,13 +205,13 @@ func (c *CLI) parseFlags(args []string) (*flag.FlagSet, error) {
 	flags := flag.NewFlagSet("purl", flag.ContinueOnError)
 	flags.SetOutput(c.errStream)
 
-	var noColor bool
+	var color, noColor bool
 
 	flags.BoolVar(&c.isOverwrite, "overwrite", false, "Replace original file with results.")
 	flags.StringVar(&c.replaceExpr, "replace", "", "Format: '@match@replacement@'.")
 	flags.Var(&c.filters, "filter", "Apply search refinement.")
 	flags.Var(&c.excludes, "exclude", "Exclude lines matching regex.")
-	flags.BoolVar(&c.color, "color", false, "Colored output. Default auto.")
+	flags.BoolVar(&color, "color", false, "Colored output. Default auto.")
 	flags.BoolVar(&noColor, "no-color", false, "Disable colored output.")
 	flags.BoolVar(&c.ignoreCase, "i", false, `Ignore case (prefixes '(?i)' to all regular expressions)`)
 	flags.BoolVar(&c.help, "help", false, `Show help`)
@@ -226,13 +227,13 @@ func (c *CLI) parseFlags(args []string) (*flag.FlagSet, error) {
 		return nil, fmt.Errorf("failed to parse flags: %w", err)
 	}
 
-	c.color = !noColor && (c.color || term.IsTerminal(int(os.Stdout.Fd())))
+	c.isColor = !noColor && (color || c.isStdoutTerminal)
 
 	return flags, nil
 }
 
 func (c *CLI) validateInput(flags *flag.FlagSet) error {
-	if flags.NArg() == 0 && term.IsTerminal(int(os.Stdin.Fd())) {
+	if flags.NArg() == 0 && c.isStdinTerminal {
 		return fmt.Errorf("no input file specified")
 	}
 
@@ -287,7 +288,7 @@ func (c *CLI) filterProcess(filters []*regexp.Regexp, excludes []*regexp.Regexp,
 		hit, hitRes := matchesFilters(line, filters)
 		if len(filters) == 0 || hit {
 			if excludeHit, _ := matchesFilters(line, excludes); !excludeHit {
-				if len(hitRes) > 0 && c.color {
+				if len(hitRes) > 0 && c.isColor {
 					line = colorText(line, hitRes)
 				}
 				fmt.Fprintln(c.outStream, line)

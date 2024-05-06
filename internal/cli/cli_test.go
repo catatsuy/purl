@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/catatsuy/purl/internal/cli"
@@ -11,7 +12,7 @@ import (
 
 func TestNewCLI(t *testing.T) {
 	outStream, errStream, inputStream := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
-	cl := cli.NewCLI(outStream, errStream, inputStream)
+	cl := cli.NewCLI(outStream, errStream, inputStream, true, true)
 
 	if cl == nil {
 		t.Error("NewCLI should not return nil")
@@ -82,7 +83,7 @@ func TestRun_successProcess(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			outStream, errStream, inputStream := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
-			cl := cli.NewCLI(outStream, errStream, inputStream)
+			cl := cli.NewCLI(outStream, errStream, inputStream, false, false)
 			inputStream.WriteString(test.input)
 
 			expectedCode := 0
@@ -92,6 +93,111 @@ func TestRun_successProcess(t *testing.T) {
 
 			if outStream.String() != test.expected {
 				t.Errorf("Output=%q, want %q; error: %q", outStream.String(), test.expected, errStream.String())
+			}
+		})
+	}
+}
+
+func TestRun_successProcessOnTerminal(t *testing.T) {
+	tests := map[string]struct {
+		args     []string
+		input    string
+		expected string
+		result   int
+	}{
+		"provide file": {
+			args:     []string{"purl", "-replace", "@search@replacement@", "testdata/test.txt"},
+			expected: "replacementa replacementb\nSearcha Searchb\n",
+		},
+		"provide multiple files for replace": {
+			args:     []string{"purl", "-replace", "@search@replacement@", "testdata/test.txt", "testdata/testa.txt"},
+			expected: "replacementa replacementb\nSearcha Searchb\nreplacementc replacementd\nnot not not\n",
+		},
+		"provide file for ignore case": {
+			args:     []string{"purl", "-i", "-replace", "@search@replacement@", "testdata/test.txt"},
+			expected: "replacementa replacementb\nreplacementa replacementb\n",
+		},
+		"provide multiple files for ignore case": {
+			args:     []string{"purl", "-i", "-replace", "@search@replacement@", "testdata/test.txt", "testdata/testa.txt"},
+			expected: "replacementa replacementb\nreplacementa replacementb\nreplacementc replacementd\nnot not not\n",
+		},
+		"provide multiple files for filter": {
+			args:     []string{"purl", "-filter", "search", "testdata/test.txt", "testdata/testa.txt"},
+			expected: "\x1b[1m\x1b[91msearch\x1b[0ma \x1b[1m\x1b[91msearch\x1b[0mb\n\x1b[1m\x1b[91msearch\x1b[0mc \x1b[1m\x1b[91msearch\x1b[0md\n",
+		},
+	}
+
+	for name, test := range tests {
+		test := test
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			outStream, errStream, inputStream := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
+			cl := cli.NewCLI(outStream, errStream, inputStream, true, true)
+			inputStream.WriteString(test.input)
+
+			expectedCode := 0
+			if got, expected := cl.Run(test.args), expectedCode; got != expected {
+				t.Fatalf("Expected exit code %d, but got %d; error: %q", expected, got, errStream.String())
+			}
+
+			if outStream.String() != test.expected {
+				t.Errorf("Output=%q, want %q; error: %q", outStream.String(), test.expected, errStream.String())
+			}
+		})
+	}
+}
+
+func TestRun_FailOnTerminal(t *testing.T) {
+	tests := map[string]struct {
+		args     []string
+		input    string
+		expected string
+		result   int
+	}{
+		"normal": {
+			args:  []string{"purl", "-replace", "@search@replacement@"},
+			input: "searchb searchc",
+		},
+		"no match": {
+			args:  []string{"purl", "-replace", "@search@replacement@"},
+			input: "no match",
+		},
+		"provide stdin for ignore case": {
+			args:  []string{"purl", "-i", "-replace", "@search@replacement@"},
+			input: "searcha Search\nsearchc Searchd\n",
+		},
+		"color text": {
+			args:     []string{"purl", "-filter", "search", "-color"},
+			input:    "searchb\nreplace\nsearchc",
+			expected: "\x1b[1m\x1b[91msearch\x1b[0mb\n\x1b[1m\x1b[91msearch\x1b[0mc\n",
+		},
+		"color text for multiple filter": {
+			args:     []string{"purl", "-filter", "search", "-filter", "abcd", "-color"},
+			input:    "searchb\nreplace\nsearchcabcdefg",
+			expected: "\x1b[1m\x1b[91msearch\x1b[0mb\n\x1b[1m\x1b[91msearch\x1b[0mc\x1b[1m\x1b[91mabcd\x1b[0mefg\n",
+		},
+		"no color text": {
+			args:     []string{"purl", "-filter", "search", "-no-color"},
+			input:    "searchb\nreplace\nsearchc",
+			expected: "searchb\nsearchc\n",
+		},
+	}
+
+	for name, test := range tests {
+		test := test
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			outStream, errStream, inputStream := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
+			cl := cli.NewCLI(outStream, errStream, inputStream, true, true)
+			inputStream.WriteString(test.input)
+
+			expectedCode := 1
+			if got, expected := cl.Run(test.args), expectedCode; got != expected {
+				t.Fatalf("Expected exit code %d, but got %d; error: %q", expected, got, errStream.String())
+			}
+
+			if !strings.Contains(errStream.String(), "no input file specified") {
+				t.Errorf("Error=%q", errStream.String())
 			}
 		})
 	}
@@ -149,7 +255,7 @@ func TestRun_success(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 			outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-			cl := cli.NewCLI(outStream, errStream, os.Stdin)
+			cl := cli.NewCLI(outStream, errStream, os.Stdin, false, false)
 
 			if got := cl.Run(tc.args); got != tc.expectedCode {
 				t.Fatalf("Expected exit code %d, but got %d; error: %q", tc.expectedCode, got, errStream.String())
@@ -198,7 +304,7 @@ func TestRun_successForOverwrite(t *testing.T) {
 			}()
 
 			outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-			cl := cli.NewCLI(outStream, errStream, os.Stdin)
+			cl := cli.NewCLI(outStream, errStream, os.Stdin, false, false)
 
 			if got := cl.Run(tc.args); got != tc.expectedCode {
 				t.Fatalf("Expected exit code %d, but got %d; error: %q", tc.expectedCode, got, errStream.String())
@@ -258,7 +364,7 @@ func TestRun_failToProvideStdin(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 			outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-			cl := cli.NewCLI(outStream, errStream, os.Stdin)
+			cl := cli.NewCLI(outStream, errStream, os.Stdin, false, false)
 
 			if got := cl.Run(tc.args); got != tc.expectedCode {
 				t.Fatalf("Expected exit code %d, but got %d; error: %q", tc.expectedCode, got, errStream.String())
@@ -284,7 +390,7 @@ func TestRun_failToProvideFiles(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 			outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
-			cl := cli.NewCLI(outStream, errStream, os.Stdin)
+			cl := cli.NewCLI(outStream, errStream, os.Stdin, false, false)
 
 			if got := cl.Run(tc.args); got != tc.expectedCode {
 				t.Fatalf("Expected exit code %d, but got %d; error: %q", tc.expectedCode, got, errStream.String())
@@ -320,7 +426,7 @@ func TestRun_failToProvideOverwriteAndStdin(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 			outStream, errStream, inputStream := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
-			cl := cli.NewCLI(outStream, errStream, inputStream)
+			cl := cli.NewCLI(outStream, errStream, inputStream, false, false)
 
 			if got := cl.Run(tc.args); got != tc.expectedCode {
 				t.Fatalf("Expected exit code %d, but got %d; error: %q", tc.expectedCode, got, errStream.String())
@@ -331,7 +437,7 @@ func TestRun_failToProvideOverwriteAndStdin(t *testing.T) {
 
 func TestReplaceProcess_replace(t *testing.T) {
 	outStream, errStream, inputStream := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
-	cl := cli.NewCLI(outStream, errStream, inputStream)
+	cl := cli.NewCLI(outStream, errStream, inputStream, false, false)
 
 	inputStream.WriteString("searchb searchc")
 
@@ -349,7 +455,7 @@ func TestReplaceProcess_replace(t *testing.T) {
 
 func TestReplaceProcess_noMatch(t *testing.T) {
 	outStream, errStream, inputStream := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
-	cl := cli.NewCLI(outStream, errStream, inputStream)
+	cl := cli.NewCLI(outStream, errStream, inputStream, false, false)
 
 	inputStream.WriteString("no match")
 
@@ -488,7 +594,7 @@ func TestFilterProcess(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			outStream, errStream, inputStream := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
-			cl := cli.NewCLI(outStream, errStream, inputStream)
+			cl := cli.NewCLI(outStream, errStream, inputStream, false, false)
 			inputStream.WriteString(tt.input)
 
 			filters, err := cli.CompileRegexps(tt.filters, false)
