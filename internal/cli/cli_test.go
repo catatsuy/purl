@@ -76,6 +76,11 @@ func TestRun_successProcess(t *testing.T) {
 			input:    "searchb\nreplace\nsearchc",
 			expected: "searchb\nsearchc\n",
 		},
+		"provide multiple lines for replace": {
+			args:     []string{"purl", "-replace", "@CREATE TABLE `table2`[^;]+@@"},
+			input:    "CREATE TABLE `table1` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\nCREATE TABLE `table2` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;",
+			expected: "CREATE TABLE `table1` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\n\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\n",
+		},
 	}
 
 	for name, test := range tests {
@@ -120,6 +125,10 @@ func TestRun_successProcessOnTerminal(t *testing.T) {
 		"provide multiple files for ignore case": {
 			args:     []string{"purl", "-i", "-replace", "@search@replacement@", "testdata/test.txt", "testdata/testa.txt"},
 			expected: "replacementa replacementb\nreplacementa replacementb\nreplacementc replacementd\nnot not not\n",
+		},
+		"provide multiple lines for replace": {
+			args:     []string{"purl", "-replace", "@CREATE TABLE `table2`[^;]+;@@", "testdata/testsql.txt"},
+			expected: "CREATE TABLE `table1` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\n\n\n",
 		},
 		"provide multiple files for filter": {
 			args:     []string{"purl", "-filter", "search", "testdata/test.txt", "testdata/testa.txt"},

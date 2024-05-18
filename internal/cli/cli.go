@@ -264,17 +264,32 @@ func (c *CLI) validateInput(flags *flag.FlagSet) error {
 	return nil
 }
 
+// replaceProcess reads data from inputStream, performs a regex replacement,
+// and writes the modified data to outputStream.
+// If input is from a pipe, it processes input line by line without changing newline characters.
+// If input is from a file, it reads and processes the entire file at once.
 func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement string, inputStream io.Reader) error {
-	scanner := bufio.NewScanner(inputStream)
+	if c.isStdinTerminal {
+		// Read all data from the file input
+		b, err := io.ReadAll(inputStream)
+		if err != nil {
+			return fmt.Errorf("error reading file: %w", err)
+		}
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		modifiedLine := searchRe.ReplaceAllString(line, replacement)
-		fmt.Fprintln(c.outStream, modifiedLine)
-	}
+		modified := searchRe.ReplaceAll(b, []byte(replacement))
+		c.outStream.Write(modified)
+	} else {
+		scanner := bufio.NewScanner(inputStream)
 
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error reading file: %w", err)
+		for scanner.Scan() {
+			line := scanner.Text()
+			modifiedLine := searchRe.ReplaceAllString(line, replacement)
+			fmt.Fprintln(c.outStream, modifiedLine)
+		}
+
+		if err := scanner.Err(); err != nil {
+			return fmt.Errorf("error reading file: %w", err)
+		}
 	}
 
 	return nil
