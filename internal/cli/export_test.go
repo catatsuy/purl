@@ -5,7 +5,7 @@ import (
 	"regexp"
 )
 
-func (c *CLI) ReplaceProcess(searchRe *regexp.Regexp, replacement string, inputStream io.Reader) error {
+func (c *CLI) ReplaceProcess(searchRe *regexp.Regexp, replacement []byte, inputStream io.Reader) error {
 	return c.replaceProcess(searchRe, replacement, inputStream)
 }
 

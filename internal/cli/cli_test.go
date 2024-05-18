@@ -28,12 +28,12 @@ func TestRun_successProcess(t *testing.T) {
 	}{
 		"normal": {
 			args:     []string{"purl", "-replace", "@search@replacement@"},
-			input:    "searchb searchc",
+			input:    "searchb searchc\n",
 			expected: "replacementb replacementc\n",
 		},
 		"no match": {
 			args:     []string{"purl", "-replace", "@search@replacement@"},
-			input:    "no match",
+			input:    "no match\n",
 			expected: "no match\n",
 		},
 		"provide file": {
@@ -63,23 +63,33 @@ func TestRun_successProcess(t *testing.T) {
 		},
 		"color text": {
 			args:     []string{"purl", "-filter", "search", "-color"},
-			input:    "searchb\nreplace\nsearchc",
+			input:    "searchb\nreplace\nsearchc\n",
 			expected: "\x1b[1m\x1b[91msearch\x1b[0mb\n\x1b[1m\x1b[91msearch\x1b[0mc\n",
 		},
 		"color text for multiple filter": {
 			args:     []string{"purl", "-filter", "search", "-filter", "abcd", "-color"},
-			input:    "searchb\nreplace\nsearchcabcdefg",
+			input:    "searchb\nreplace\nsearchcabcdefg\n",
 			expected: "\x1b[1m\x1b[91msearch\x1b[0mb\n\x1b[1m\x1b[91msearch\x1b[0mc\x1b[1m\x1b[91mabcd\x1b[0mefg\n",
 		},
 		"no color text": {
 			args:     []string{"purl", "-filter", "search", "-no-color"},
-			input:    "searchb\nreplace\nsearchc",
+			input:    "searchb\nreplace\nsearchc\n",
 			expected: "searchb\nsearchc\n",
 		},
 		"provide multiple lines for replace": {
 			args:     []string{"purl", "-replace", "@CREATE TABLE `table2`[^;]+@@"},
-			input:    "CREATE TABLE `table1` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\nCREATE TABLE `table2` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;",
-			expected: "CREATE TABLE `table1` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\n\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\n",
+			input:    "CREATE TABLE `table1` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\nCREATE TABLE `table2` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\n",
+			expected: "CREATE TABLE `table1` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\n",
+		},
+		"provide CRLF text for replace": {
+			args:     []string{"purl", "-replace", "@search@replacement@"},
+			input:    "searcha search\r\nsearchc searchd\r\n",
+			expected: "replacementa replacement\r\nreplacementc replacementd\r\n",
+		},
+		"provide CRLF text for filter": {
+			args:     []string{"purl", "-filter", "search"},
+			input:    "searchb\r\nreplace\r\nsearchcabcdefg\r\n",
+			expected: "searchb\r\nsearchcabcdefg\r\n",
 		},
 	}
 
@@ -448,9 +458,9 @@ func TestReplaceProcess_replace(t *testing.T) {
 	outStream, errStream, inputStream := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
 	cl := cli.NewCLI(outStream, errStream, inputStream, false, false)
 
-	inputStream.WriteString("searchb searchc")
+	inputStream.WriteString("searchb searchc\n")
 
-	err := cl.ReplaceProcess(regexp.MustCompile("search"), "replacement", inputStream)
+	err := cl.ReplaceProcess(regexp.MustCompile("search"), []byte("replacement"), inputStream)
 
 	if err != nil {
 		t.Errorf("Error=%q", err)
@@ -466,9 +476,9 @@ func TestReplaceProcess_noMatch(t *testing.T) {
 	outStream, errStream, inputStream := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
 	cl := cli.NewCLI(outStream, errStream, inputStream, false, false)
 
-	inputStream.WriteString("no match")
+	inputStream.WriteString("no match\n")
 
-	err := cl.ReplaceProcess(regexp.MustCompile("search"), "replacement", inputStream)
+	err := cl.ReplaceProcess(regexp.MustCompile("search"), []byte("replacement"), inputStream)
 
 	if err != nil {
 		t.Errorf("Error=%q", err)

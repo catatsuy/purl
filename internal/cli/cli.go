@@ -92,7 +92,7 @@ func (c *CLI) Run(args []string) int {
 	}
 
 	var searchRe *regexp.Regexp
-	var replacement string
+	var replacement []byte
 
 	if len(c.replaceExpr) > 0 {
 		delimiter := string(c.replaceExpr[0])
@@ -102,7 +102,7 @@ func (c *CLI) Run(args []string) int {
 			return ExitCodeFail
 		}
 		var searchPattern string
-		searchPattern, replacement = parts[0], parts[1]
+		searchPattern, replacement = parts[0], []byte(parts[1])
 
 		if c.ignoreCase {
 			searchPattern = "(?i)" + searchPattern
@@ -268,7 +268,7 @@ func (c *CLI) validateInput(flags *flag.FlagSet) error {
 // and writes the modified data to outputStream.
 // If input is from a pipe, it processes input line by line without changing newline characters.
 // If input is from a file, it reads and processes the entire file at once.
-func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement string, inputStream io.Reader) error {
+func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement []byte, inputStream io.Reader) error {
 	if c.isStdinTerminal {
 		// Read all data from the file input
 		b, err := io.ReadAll(inputStream)
@@ -276,19 +276,25 @@ func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement string, inputS
 			return fmt.Errorf("error reading file: %w", err)
 		}
 
-		modified := searchRe.ReplaceAll(b, []byte(replacement))
+		modified := searchRe.ReplaceAll(b, replacement)
 		c.outStream.Write(modified)
 	} else {
-		scanner := bufio.NewScanner(inputStream)
-
-		for scanner.Scan() {
-			line := scanner.Text()
-			modifiedLine := searchRe.ReplaceAllString(line, replacement)
-			fmt.Fprintln(c.outStream, modifiedLine)
-		}
-
-		if err := scanner.Err(); err != nil {
-			return fmt.Errorf("error reading file: %w", err)
+		// Read input line by line when input is from a pipe without changing newline characters
+		reader := bufio.NewReader(inputStream)
+		for {
+			line, err := reader.ReadBytes('\n')
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return fmt.Errorf("error reading input: %w", err)
+			}
+			// Replace text in each line using the regex
+			modifiedLine := searchRe.ReplaceAll(line, replacement)
+			// Write the changed line to the output
+			if _, err := c.outStream.Write(modifiedLine); err != nil {
+				return fmt.Errorf("error writing to output: %w", err)
+			}
 		}
 	}
 
@@ -296,23 +302,29 @@ func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement string, inputS
 }
 
 func (c *CLI) filterProcess(filters []*regexp.Regexp, excludes []*regexp.Regexp, inputStream io.Reader) error {
-	scanner := bufio.NewScanner(inputStream)
+	// Read input line by line when input is from a pipe without changing newline characters
+	reader := bufio.NewReader(inputStream)
+	for {
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("error reading input: %w", err)
+		}
 
-	for scanner.Scan() {
-		line := scanner.Text()
 		hit, hitRes := matchesFilters(line, filters)
 		if len(filters) == 0 || hit {
 			if excludeHit, _ := matchesFilters(line, excludes); !excludeHit {
 				if len(hitRes) > 0 && c.isColor {
 					line = colorText(line, hitRes)
 				}
-				fmt.Fprintln(c.outStream, line)
+
+				if _, err := c.outStream.Write(line); err != nil {
+					return fmt.Errorf("error writing to output: %w", err)
+				}
 			}
 		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error reading file: %w", err)
 	}
 
 	return nil
@@ -333,19 +345,19 @@ func compileRegexps(rawPatterns []string, ignoreCase bool) ([]*regexp.Regexp, er
 	return regexps, nil
 }
 
-func matchesFilters(line string, regexps []*regexp.Regexp) (bool, []*regexp.Regexp) {
+func matchesFilters(line []byte, regexps []*regexp.Regexp) (bool, []*regexp.Regexp) {
 	var matchedRegexps []*regexp.Regexp
 	for _, re := range regexps {
-		if re.MatchString(line) {
+		if re.Match(line) {
 			matchedRegexps = append(matchedRegexps, re)
 		}
 	}
 	return len(matchedRegexps) > 0, matchedRegexps
 }
 
-func colorText(line string, res []*regexp.Regexp) string {
+func colorText(line []byte, res []*regexp.Regexp) []byte {
 	for _, re := range res {
-		line = re.ReplaceAllString(line, "\x1b[1m\x1b[91m$0\x1b[0m")
+		line = re.ReplaceAll(line, []byte("\x1b[1m\x1b[91m$0\x1b[0m"))
 	}
 	return line
 }
