@@ -92,7 +92,7 @@ func (c *CLI) Run(args []string) int {
 	}
 
 	var searchRe *regexp.Regexp
-	var replacement string
+	var replacement []byte
 
 	if len(c.replaceExpr) > 0 {
 		delimiter := string(c.replaceExpr[0])
@@ -102,7 +102,7 @@ func (c *CLI) Run(args []string) int {
 			return ExitCodeFail
 		}
 		var searchPattern string
-		searchPattern, replacement = parts[0], parts[1]
+		searchPattern, replacement = parts[0], []byte(parts[1])
 
 		if c.ignoreCase {
 			searchPattern = "(?i)" + searchPattern
@@ -268,7 +268,7 @@ func (c *CLI) validateInput(flags *flag.FlagSet) error {
 // and writes the modified data to outputStream.
 // If input is from a pipe, it processes input line by line without changing newline characters.
 // If input is from a file, it reads and processes the entire file at once.
-func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement string, inputStream io.Reader) error {
+func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement []byte, inputStream io.Reader) error {
 	if c.isStdinTerminal {
 		// Read all data from the file input
 		b, err := io.ReadAll(inputStream)
@@ -276,7 +276,7 @@ func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement string, inputS
 			return fmt.Errorf("error reading file: %w", err)
 		}
 
-		modified := searchRe.ReplaceAll(b, []byte(replacement))
+		modified := searchRe.ReplaceAll(b, replacement)
 		c.outStream.Write(modified)
 	} else {
 		// Read input line by line when input is from a pipe without changing newline characters
@@ -290,7 +290,7 @@ func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement string, inputS
 				return fmt.Errorf("error reading input: %w", err)
 			}
 			// Replace text in each line using the regex
-			modifiedLine := searchRe.ReplaceAll(line, []byte(replacement))
+			modifiedLine := searchRe.ReplaceAll(line, replacement)
 			// Write the changed line to the output
 			if _, err := c.outStream.Write(modifiedLine); err != nil {
 				return fmt.Errorf("error writing to output: %w", err)

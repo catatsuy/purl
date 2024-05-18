@@ -460,7 +460,7 @@ func TestReplaceProcess_replace(t *testing.T) {
 
 	inputStream.WriteString("searchb searchc\n")
 
-	err := cl.ReplaceProcess(regexp.MustCompile("search"), "replacement", inputStream)
+	err := cl.ReplaceProcess(regexp.MustCompile("search"), []byte("replacement"), inputStream)
 
 	if err != nil {
 		t.Errorf("Error=%q", err)
@@ -478,7 +478,7 @@ func TestReplaceProcess_noMatch(t *testing.T) {
 
 	inputStream.WriteString("no match\n")
 
-	err := cl.ReplaceProcess(regexp.MustCompile("search"), "replacement", inputStream)
+	err := cl.ReplaceProcess(regexp.MustCompile("search"), []byte("replacement"), inputStream)
 
 	if err != nil {
 		t.Errorf("Error=%q", err)
