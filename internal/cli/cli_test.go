@@ -63,12 +63,12 @@ func TestRun_successProcess(t *testing.T) {
 		},
 		"color text": {
 			args:     []string{"purl", "-filter", "search", "-color"},
-			input:    "searchb\nreplace\nsearchc",
+			input:    "searchb\nreplace\nsearchc\n",
 			expected: "\x1b[1m\x1b[91msearch\x1b[0mb\n\x1b[1m\x1b[91msearch\x1b[0mc\n",
 		},
 		"color text for multiple filter": {
 			args:     []string{"purl", "-filter", "search", "-filter", "abcd", "-color"},
-			input:    "searchb\nreplace\nsearchcabcdefg",
+			input:    "searchb\nreplace\nsearchcabcdefg\n",
 			expected: "\x1b[1m\x1b[91msearch\x1b[0mb\n\x1b[1m\x1b[91msearch\x1b[0mc\x1b[1m\x1b[91mabcd\x1b[0mefg\n",
 		},
 		"no color text": {
@@ -81,10 +81,15 @@ func TestRun_successProcess(t *testing.T) {
 			input:    "CREATE TABLE `table1` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\nCREATE TABLE `table2` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\n",
 			expected: "CREATE TABLE `table1` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\n",
 		},
-		"provide CRLF text": {
+		"provide CRLF text for replace": {
 			args:     []string{"purl", "-replace", "@search@replacement@"},
 			input:    "searcha search\r\nsearchc searchd\r\n",
 			expected: "replacementa replacement\r\nreplacementc replacementd\r\n",
+		},
+		"provide CRLF text for filter": {
+			args:     []string{"purl", "-filter", "search"},
+			input:    "searchb\r\nreplace\r\nsearchcabcdefg\r\n",
+			expected: "searchb\r\nsearchcabcdefg\r\n",
 		},
 	}
 
