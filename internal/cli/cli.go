@@ -279,16 +279,22 @@ func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement string, inputS
 		modified := searchRe.ReplaceAll(b, []byte(replacement))
 		c.outStream.Write(modified)
 	} else {
-		scanner := bufio.NewScanner(inputStream)
-
-		for scanner.Scan() {
-			line := scanner.Text()
-			modifiedLine := searchRe.ReplaceAllString(line, replacement)
-			fmt.Fprintln(c.outStream, modifiedLine)
-		}
-
-		if err := scanner.Err(); err != nil {
-			return fmt.Errorf("error reading file: %w", err)
+		// Read input line by line when input is from a pipe without changing newline characters
+		reader := bufio.NewReader(inputStream)
+		for {
+			line, err := reader.ReadBytes('\n')
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return fmt.Errorf("error reading input: %w", err)
+			}
+			// Replace text in each line using the regex
+			modifiedLine := searchRe.ReplaceAll(line, []byte(replacement))
+			// Write the changed line to the output
+			if _, err := c.outStream.Write(modifiedLine); err != nil {
+				return fmt.Errorf("error writing to output: %w", err)
+			}
 		}
 	}
 
