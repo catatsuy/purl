@@ -42,7 +42,7 @@ https://github.com/catatsuy/purl/assets/1249910/be87d17a-44e7-4091-bc80-77921174
 
 This demo demonstrates using Purl to remove comments and empty lines from a configuration file, employing both `-filter` and `-exclude` options along with `-overwrite` to directly modify the file.
 
-https://github.com/catatsuy/purl/assets/1249910/77bdd84e-45be-4dc2-9890-077cd6f9210d
+https://github.com/catatsuy/purl/assets/1249910/5cc479cc-ce1c-4901-864d-963bf659e125
 
 ## Features
 
