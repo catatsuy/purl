@@ -13,8 +13,8 @@ import (
 
 const (
 	ExitCodeOK             = 0
-	ExitCodeParseFlagError = 1
-	ExitCodeFail           = 1
+	ExitCodeParseFlagError = 2
+	ExitCodeFail           = 2
 )
 
 var (
@@ -160,7 +160,8 @@ func (c *CLI) Run(args []string) int {
 			}
 
 			if len(c.replaceExpr) > 0 {
-				if err := c.replaceProcess(searchRe, replacement, file); err != nil {
+				err := c.replaceProcess(searchRe, replacement, file)
+				if err != nil {
 					fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
 					return ExitCodeFail
 				}
@@ -183,7 +184,8 @@ func (c *CLI) Run(args []string) int {
 		}
 	} else {
 		if len(c.replaceExpr) > 0 {
-			if err := c.replaceProcess(searchRe, replacement, c.inputStream); err != nil {
+			err := c.replaceProcess(searchRe, replacement, c.inputStream)
+			if err != nil {
 				fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
 				return ExitCodeFail
 			}
@@ -291,6 +293,7 @@ func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement []byte, inputS
 			}
 			// Replace text in each line using the regex
 			modifiedLine := searchRe.ReplaceAll(line, replacement)
+
 			// Write the changed line to the output
 			if _, err := c.outStream.Write(modifiedLine); err != nil {
 				return fmt.Errorf("error writing to output: %w", err)
