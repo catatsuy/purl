@@ -81,6 +81,11 @@ func TestRun_successProcess(t *testing.T) {
 			input:    "CREATE TABLE `table1` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\nCREATE TABLE `table2` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\n",
 			expected: "CREATE TABLE `table1` (\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\n  `id` int(11) NOT NULL AUTO_INCREMENT,\n  PRIMARY KEY (`id`)\n) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;\n",
 		},
+		"provide fail mode for filter": {
+			args:     []string{"purl", "-filter", "search", "-fail"},
+			input:    "searchb\r\nreplace\r\nsearchcabcdefg\r\n",
+			expected: "searchb\r\nsearchcabcdefg\r\n",
+		},
 		"provide CRLF text for replace": {
 			args:     []string{"purl", "-replace", "@search@replacement@"},
 			input:    "searcha search\r\nsearchc searchd\r\n",
@@ -237,6 +242,57 @@ func TestRun_FailOnTerminal(t *testing.T) {
 	}
 }
 
+func TestRun_FailMode(t *testing.T) {
+	tests := map[string]struct {
+		args         []string
+		input        string
+		expected     string
+		expectedCode int
+		result       int
+	}{
+		"replace normal": {
+			args:         []string{"purl", "-replace", "@search@replacement@", "-fail"},
+			input:        "searchb searchc\n",
+			expectedCode: 0,
+		},
+		"no match": {
+			args:         []string{"purl", "-replace", "@search@replacement@", "-fail"},
+			input:        "no match",
+			expectedCode: 1,
+		},
+		"provide stdin for ignore case": {
+			args:         []string{"purl", "-i", "-replace", "@search@replacement@", "-fail"},
+			input:        "searcha Search\nsearchc Searchd\n",
+			expectedCode: 0,
+		},
+		"filter": {
+			args:         []string{"purl", "-filter", "search", "-fail"},
+			input:        "searchb\nreplace\nsearchc",
+			expected:     "searchb\nsearchc\n",
+			expectedCode: 0,
+		},
+		"filter no match": {
+			args:         []string{"purl", "-filter", "search", "-fail"},
+			input:        "no match",
+			expected:     "",
+			expectedCode: 1,
+		},
+	}
+
+	for name, test := range tests {
+		test := test
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			outStream, errStream, inputStream := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
+			cl := cli.NewCLI(outStream, errStream, inputStream, false, false)
+			inputStream.WriteString(test.input)
+
+			if got, expected := cl.Run(test.args), test.expectedCode; got != expected {
+				t.Fatalf("Expected exit code %d, but got %d; error: %q", expected, got, errStream.String())
+			}
+		})
+	}
+}
 func TestRun_success(t *testing.T) {
 	testCases := []struct {
 		desc         string
@@ -577,54 +633,63 @@ func TestFilterProcess(t *testing.T) {
 		filters    []string
 		excludes   []string
 		wantOutput string
+		expeted    bool
 	}{
 		{
 			name:       "SingleMatch",
 			input:      "apple\nbanana\ncherry\n",
 			filters:    []string{"banana"},
 			wantOutput: "banana\n",
+			expeted:    true,
 		},
 		{
 			name:       "MultipleMatches",
 			input:      "apple\nbanana\ncherry\n",
 			filters:    []string{"apple", "cherry"},
 			wantOutput: "apple\ncherry\n",
+			expeted:    true,
 		},
 		{
 			name:       "NoMatch",
 			input:      "apple\nbanana\ncherry\n",
 			filters:    []string{"date"},
 			wantOutput: "",
+			expeted:    false,
 		},
 		{
 			name:       "EmptyInput",
 			input:      "",
 			filters:    []string{"apple"},
 			wantOutput: "",
+			expeted:    false,
 		},
 		{
 			name:       "-exclude: SingleMatch",
 			input:      "apple\nbanana\ncherry\n",
 			excludes:   []string{"banana"},
 			wantOutput: "apple\ncherry\n",
+			expeted:    false,
 		},
 		{
 			name:       "-exclude: MultipleMatches",
 			input:      "apple\nbanana\ncherry\n",
 			excludes:   []string{"apple", "cherry"},
 			wantOutput: "banana\n",
+			expeted:    false,
 		},
 		{
 			name:       "-exclude: NoMatch",
 			input:      "apple\nbanana\ncherry\n",
 			excludes:   []string{"date"},
 			wantOutput: "apple\nbanana\ncherry\n",
+			expeted:    false,
 		},
 		{
 			name:       "-exclude: EmptyInput",
 			input:      "",
 			excludes:   []string{"apple"},
 			wantOutput: "",
+			expeted:    false,
 		},
 		{
 			name:       "provide filter and not filter",
@@ -632,6 +697,7 @@ func TestFilterProcess(t *testing.T) {
 			filters:    []string{"apple"},
 			excludes:   []string{"cherry"},
 			wantOutput: "apple\n",
+			expeted:    true,
 		},
 	}
 
@@ -654,10 +720,14 @@ func TestFilterProcess(t *testing.T) {
 				return
 			}
 
-			err = cl.FilterProcess(filters, excludes, inputStream)
+			matched, err := cl.FilterProcess(filters, excludes, inputStream)
 			if err != nil {
 				t.Errorf("filterProcess() error = %v", err)
 				return
+			}
+
+			if matched != tt.expeted {
+				t.Errorf("filterProcess() matched = %v, want %v", matched, tt.expeted)
 			}
 
 			gotOutput := outStream.String()
