@@ -15,6 +15,7 @@ const (
 	ExitCodeOK             = 0
 	ExitCodeParseFlagError = 2
 	ExitCodeFail           = 2
+	ExitCodeNoMatch        = 1
 )
 
 var (
@@ -59,6 +60,7 @@ type CLI struct {
 	help        bool
 	isColor     bool
 	ignoreCase  bool
+	failMode    bool
 	version     bool
 
 	appVersion string
@@ -160,18 +162,28 @@ func (c *CLI) Run(args []string) int {
 			}
 
 			if len(c.replaceExpr) > 0 {
-				err := c.replaceProcess(searchRe, replacement, file)
+				matched, err := c.replaceProcess(searchRe, replacement, file)
 				if err != nil {
 					fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
 					return ExitCodeFail
 				}
+
+				if c.failMode && !matched {
+					fmt.Fprintf(c.errStream, "No matches found in file: %s\n", filePath)
+					return ExitCodeNoMatch
+				}
 			}
 
 			if len(c.filters) > 0 || len(c.excludes) > 0 {
-				err = c.filterProcess(filterRes, excludeRes, file)
+				matched, err := c.filterProcess(filterRes, excludeRes, file)
 				if err != nil {
 					fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
 					return ExitCodeFail
+				}
+
+				if c.failMode && !matched {
+					fmt.Fprintf(c.errStream, "No matches found in file: %s\n", filePath)
+					return ExitCodeNoMatch
 				}
 			}
 
@@ -184,18 +196,28 @@ func (c *CLI) Run(args []string) int {
 		}
 	} else {
 		if len(c.replaceExpr) > 0 {
-			err := c.replaceProcess(searchRe, replacement, c.inputStream)
+			matched, err := c.replaceProcess(searchRe, replacement, c.inputStream)
 			if err != nil {
 				fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
 				return ExitCodeFail
 			}
+
+			if c.failMode && !matched {
+				fmt.Fprintln(c.errStream, "No matches found in input")
+				return ExitCodeNoMatch
+			}
 		}
 
 		if len(c.filters) > 0 || len(c.excludes) > 0 {
-			err = c.filterProcess(filterRes, excludeRes, c.inputStream)
+			matched, err := c.filterProcess(filterRes, excludeRes, c.inputStream)
 			if err != nil {
 				fmt.Fprintf(c.errStream, "Failed to process files: %s\n", err)
 				return ExitCodeFail
+			}
+
+			if c.failMode && !matched {
+				fmt.Fprintln(c.errStream, "No matches found in input")
+				return ExitCodeNoMatch
 			}
 		}
 	}
@@ -216,6 +238,7 @@ func (c *CLI) parseFlags(args []string) (*flag.FlagSet, error) {
 	flags.BoolVar(&color, "color", false, "Colored output. Default auto.")
 	flags.BoolVar(&noColor, "no-color", false, "Disable colored output.")
 	flags.BoolVar(&c.ignoreCase, "i", false, `Ignore case (prefixes '(?i)' to all regular expressions)`)
+	flags.BoolVar(&c.failMode, "fail", false, "Exit with a non-zero status if no matches are found")
 	flags.BoolVar(&c.help, "help", false, `Show help`)
 	flags.BoolVar(&c.version, "version", false, "Print version and quit")
 
@@ -270,15 +293,19 @@ func (c *CLI) validateInput(flags *flag.FlagSet) error {
 // and writes the modified data to outputStream.
 // If input is from a pipe, it processes input line by line without changing newline characters.
 // If input is from a file, it reads and processes the entire file at once.
-func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement []byte, inputStream io.Reader) error {
+func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement []byte, inputStream io.Reader) (bool, error) {
+	matched := false
 	if c.isStdinTerminal {
 		// Read all data from the file input
 		b, err := io.ReadAll(inputStream)
 		if err != nil {
-			return fmt.Errorf("error reading file: %w", err)
+			return false, fmt.Errorf("error reading file: %w", err)
 		}
 
-		modified := searchRe.ReplaceAll(b, replacement)
+		modified := searchRe.ReplaceAllFunc(b, func(match []byte) []byte {
+			matched = true
+			return replacement
+		})
 		c.outStream.Write(modified)
 	} else {
 		// Read input line by line when input is from a pipe without changing newline characters
@@ -289,22 +316,26 @@ func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement []byte, inputS
 				if err == io.EOF {
 					break
 				}
-				return fmt.Errorf("error reading input: %w", err)
+				return false, fmt.Errorf("error reading input: %w", err)
 			}
 			// Replace text in each line using the regex
-			modifiedLine := searchRe.ReplaceAll(line, replacement)
+			modifiedLine := searchRe.ReplaceAllFunc(line, func(match []byte) []byte {
+				matched = true
+				return replacement
+			})
 
 			// Write the changed line to the output
 			if _, err := c.outStream.Write(modifiedLine); err != nil {
-				return fmt.Errorf("error writing to output: %w", err)
+				return false, fmt.Errorf("error writing to output: %w", err)
 			}
 		}
 	}
 
-	return nil
+	return matched, nil
 }
 
-func (c *CLI) filterProcess(filters []*regexp.Regexp, excludes []*regexp.Regexp, inputStream io.Reader) error {
+func (c *CLI) filterProcess(filters []*regexp.Regexp, excludes []*regexp.Regexp, inputStream io.Reader) (bool, error) {
+	matched := false
 	// Read input line by line when input is from a pipe without changing newline characters
 	reader := bufio.NewReader(inputStream)
 	for {
@@ -313,24 +344,25 @@ func (c *CLI) filterProcess(filters []*regexp.Regexp, excludes []*regexp.Regexp,
 			if err == io.EOF {
 				break
 			}
-			return fmt.Errorf("error reading input: %w", err)
+			return false, fmt.Errorf("error reading input: %w", err)
 		}
 
 		hit, hitRes := matchesFilters(line, filters)
 		if len(filters) == 0 || hit {
+			matched = hit
 			if excludeHit, _ := matchesFilters(line, excludes); !excludeHit {
 				if len(hitRes) > 0 && c.isColor {
 					line = colorText(line, hitRes)
 				}
 
 				if _, err := c.outStream.Write(line); err != nil {
-					return fmt.Errorf("error writing to output: %w", err)
+					return false, fmt.Errorf("error writing to output: %w", err)
 				}
 			}
 		}
 	}
 
-	return nil
+	return matched, nil
 }
 
 func compileRegexps(rawPatterns []string, ignoreCase bool) ([]*regexp.Regexp, error) {
