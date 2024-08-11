@@ -124,6 +124,10 @@ func TestRun_successProcessOnTerminal(t *testing.T) {
 			args:     []string{"purl", "-replace", "@search@replacement@", "testdata/test.txt"},
 			expected: "replacementa replacementb\nSearcha Searchb\n",
 		},
+		"provide file on fail": {
+			args:     []string{"purl", "-replace", "@search@replacement@", "-fail", "testdata/test.txt"},
+			expected: "replacementa replacementb\nSearcha Searchb\n",
+		},
 		"provide multiple files for replace": {
 			args:     []string{"purl", "-replace", "@search@replacement@", "testdata/test.txt", "testdata/testa.txt"},
 			expected: "replacementa replacementb\nSearcha Searchb\nreplacementc replacementd\nnot not not\n",
@@ -176,6 +180,11 @@ func TestRun_FailOnTerminal(t *testing.T) {
 	}{
 		"normal": {
 			args:         []string{"purl", "-replace", "@search@replacement@"},
+			input:        "searchb searchc",
+			expectedCode: 2,
+		},
+		"normal on fail": {
+			args:         []string{"purl", "-replace", "@search@replacement@", "-fail"},
 			input:        "searchb searchc",
 			expectedCode: 2,
 		},
@@ -258,6 +267,11 @@ func TestRun_success(t *testing.T) {
 			desc:         "replace",
 			args:         []string{"purl", "-replace", "@search@replace@"},
 			expectedCode: 0,
+		},
+		{
+			desc:         "replace for no match on fail",
+			args:         []string{"purl", "-replace", "@no match@replace@", "-fail"},
+			expectedCode: 1,
 		},
 		{
 			desc:         "-exclude",
@@ -466,9 +480,13 @@ func TestReplaceProcess_replace(t *testing.T) {
 
 	inputStream.WriteString("searchb searchc\n")
 
-	err := cl.ReplaceProcess(regexp.MustCompile("search"), []byte("replacement"), inputStream)
+	matched, err := cl.ReplaceProcess(regexp.MustCompile("search"), []byte("replacement"), inputStream)
 	if err != nil {
 		t.Errorf("Error=%q", err)
+	}
+
+	if !matched {
+		t.Errorf("Expected to match, but not matched")
 	}
 
 	expected := "replacementb replacementc\n"
@@ -483,9 +501,13 @@ func TestReplaceProcess_noMatch(t *testing.T) {
 
 	inputStream.WriteString("no match\n")
 
-	err := cl.ReplaceProcess(regexp.MustCompile("search"), []byte("replacement"), inputStream)
+	matched, err := cl.ReplaceProcess(regexp.MustCompile("search"), []byte("replacement"), inputStream)
 	if err != nil {
 		t.Errorf("Error=%q", err)
+	}
+
+	if matched {
+		t.Errorf("Expected not to match, but matched")
 	}
 
 	expected := "no match\n"
