@@ -168,37 +168,44 @@ func TestRun_successProcessOnTerminal(t *testing.T) {
 
 func TestRun_FailOnTerminal(t *testing.T) {
 	tests := map[string]struct {
-		args     []string
-		input    string
-		expected string
-		result   int
+		args         []string
+		input        string
+		expected     string
+		expectedCode int
+		result       int
 	}{
 		"normal": {
-			args:  []string{"purl", "-replace", "@search@replacement@"},
-			input: "searchb searchc",
+			args:         []string{"purl", "-replace", "@search@replacement@"},
+			input:        "searchb searchc",
+			expectedCode: 2,
 		},
 		"no match": {
-			args:  []string{"purl", "-replace", "@search@replacement@"},
-			input: "no match",
+			args:         []string{"purl", "-replace", "@search@replacement@"},
+			input:        "no match",
+			expectedCode: 2,
 		},
 		"provide stdin for ignore case": {
-			args:  []string{"purl", "-i", "-replace", "@search@replacement@"},
-			input: "searcha Search\nsearchc Searchd\n",
+			args:         []string{"purl", "-i", "-replace", "@search@replacement@"},
+			input:        "searcha Search\nsearchc Searchd\n",
+			expectedCode: 2,
 		},
 		"color text": {
-			args:     []string{"purl", "-filter", "search", "-color"},
-			input:    "searchb\nreplace\nsearchc",
-			expected: "\x1b[1m\x1b[91msearch\x1b[0mb\n\x1b[1m\x1b[91msearch\x1b[0mc\n",
+			args:         []string{"purl", "-filter", "search", "-color"},
+			input:        "searchb\nreplace\nsearchc",
+			expected:     "\x1b[1m\x1b[91msearch\x1b[0mb\n\x1b[1m\x1b[91msearch\x1b[0mc\n",
+			expectedCode: 2,
 		},
 		"color text for multiple filter": {
-			args:     []string{"purl", "-filter", "search", "-filter", "abcd", "-color"},
-			input:    "searchb\nreplace\nsearchcabcdefg",
-			expected: "\x1b[1m\x1b[91msearch\x1b[0mb\n\x1b[1m\x1b[91msearch\x1b[0mc\x1b[1m\x1b[91mabcd\x1b[0mefg\n",
+			args:         []string{"purl", "-filter", "search", "-filter", "abcd", "-color"},
+			input:        "searchb\nreplace\nsearchcabcdefg",
+			expected:     "\x1b[1m\x1b[91msearch\x1b[0mb\n\x1b[1m\x1b[91msearch\x1b[0mc\x1b[1m\x1b[91mabcd\x1b[0mefg\n",
+			expectedCode: 2,
 		},
 		"no color text": {
-			args:     []string{"purl", "-filter", "search", "-no-color"},
-			input:    "searchb\nreplace\nsearchc",
-			expected: "searchb\nsearchc\n",
+			args:         []string{"purl", "-filter", "search", "-no-color"},
+			input:        "searchb\nreplace\nsearchc",
+			expected:     "searchb\nsearchc\n",
+			expectedCode: 2,
 		},
 	}
 
@@ -210,8 +217,7 @@ func TestRun_FailOnTerminal(t *testing.T) {
 			cl := cli.NewCLI(outStream, errStream, inputStream, true, true)
 			inputStream.WriteString(test.input)
 
-			expectedCode := 1
-			if got, expected := cl.Run(test.args), expectedCode; got != expected {
+			if got, expected := cl.Run(test.args), test.expectedCode; got != expected {
 				t.Fatalf("Expected exit code %d, but got %d; error: %q", expected, got, errStream.String())
 			}
 
@@ -360,22 +366,22 @@ func TestRun_failToProvideStdin(t *testing.T) {
 		{
 			desc:         "fail to provide -replace",
 			args:         []string{"purl", "-replace", "search@replacement"},
-			expectedCode: 1,
+			expectedCode: 2,
 		},
 		{
 			desc:         "fail to provide -filter and -replace",
 			args:         []string{"purl", "-filter", "aaa", "-replace", "@search@replacement@"},
-			expectedCode: 1,
+			expectedCode: 2,
 		},
 		{
 			desc:         "non-existent file with -replace",
 			args:         []string{"purl", "-replace", "@search@replacement@", "testdata/noexist.txt"},
-			expectedCode: 1,
+			expectedCode: 2,
 		},
 		{
 			desc:         "non-existent file with -filter",
 			args:         []string{"purl", "-filter", "aaaaa", "testdata/noexist.txt"},
-			expectedCode: 1,
+			expectedCode: 2,
 		},
 	}
 
@@ -401,7 +407,7 @@ func TestRun_failToProvideFiles(t *testing.T) {
 		{
 			desc:         "fail to provide -replace",
 			args:         []string{"purl", "-replace", "search@replacement", "testdata/test.txt"},
-			expectedCode: 1,
+			expectedCode: 2,
 		},
 	}
 
@@ -427,17 +433,17 @@ func TestRun_failToProvideOverwriteAndStdin(t *testing.T) {
 		{
 			desc:         "fail to provide -replace",
 			args:         []string{"purl", "-replace", "@search@replacement", "-overwrite"},
-			expectedCode: 1,
+			expectedCode: 2,
 		},
 		{
 			desc:         "fail to provide -replace",
 			args:         []string{"purl", "-filter", "search", "-overwrite"},
-			expectedCode: 1,
+			expectedCode: 2,
 		},
 		{
 			desc:         "fail to provide -replace",
 			args:         []string{"purl", "-exclude", "search", "-overwrite"},
-			expectedCode: 1,
+			expectedCode: 2,
 		},
 	}
 
@@ -461,7 +467,6 @@ func TestReplaceProcess_replace(t *testing.T) {
 	inputStream.WriteString("searchb searchc\n")
 
 	err := cl.ReplaceProcess(regexp.MustCompile("search"), []byte("replacement"), inputStream)
-
 	if err != nil {
 		t.Errorf("Error=%q", err)
 	}
@@ -479,7 +484,6 @@ func TestReplaceProcess_noMatch(t *testing.T) {
 	inputStream.WriteString("no match\n")
 
 	err := cl.ReplaceProcess(regexp.MustCompile("search"), []byte("replacement"), inputStream)
-
 	if err != nil {
 		t.Errorf("Error=%q", err)
 	}
