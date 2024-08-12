@@ -31,6 +31,11 @@ func TestRun_successProcess(t *testing.T) {
 			input:    "searchb searchc\n",
 			expected: "replacementb replacementc\n",
 		},
+		"normal no last LF": {
+			args:     []string{"purl", "-replace", "@search@replacement@"},
+			input:    "searchb searchc",
+			expected: "replacementb replacementc",
+		},
 		"no match": {
 			args:     []string{"purl", "-replace", "@search@replacement@"},
 			input:    "no match\n",
@@ -85,6 +90,16 @@ func TestRun_successProcess(t *testing.T) {
 			args:     []string{"purl", "-filter", "search", "-fail"},
 			input:    "searchb\r\nreplace\r\nsearchcabcdefg\r\n",
 			expected: "searchb\r\nsearchcabcdefg\r\n",
+		},
+		"provide no LF text": {
+			args:     []string{"purl", "-filter", "search"},
+			input:    "searchb",
+			expected: "searchb",
+		},
+		"provide no match and no LF text": {
+			args:     []string{"purl", "-filter", "search"},
+			input:    "aaaab",
+			expected: "",
 		},
 		"provide CRLF text for replace": {
 			args:     []string{"purl", "-replace", "@search@replacement@"},

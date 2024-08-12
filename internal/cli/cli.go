@@ -314,6 +314,16 @@ func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement []byte, inputS
 			line, err := reader.ReadBytes('\n')
 			if err != nil {
 				if err == io.EOF {
+					// Process the remaining data if any
+					if len(line) > 0 {
+						modifiedLine := searchRe.ReplaceAllFunc(line, func(match []byte) []byte {
+							matched = true
+							return replacement
+						})
+						if _, err := c.outStream.Write(modifiedLine); err != nil {
+							return false, fmt.Errorf("error writing to output: %w", err)
+						}
+					}
 					break
 				}
 				return false, fmt.Errorf("error reading input: %w", err)
@@ -342,6 +352,22 @@ func (c *CLI) filterProcess(filters []*regexp.Regexp, excludes []*regexp.Regexp,
 		line, err := reader.ReadBytes('\n')
 		if err != nil {
 			if err == io.EOF {
+				// Process the remaining data if any
+				if len(line) > 0 {
+					hit, hitRes := matchesFilters(line, filters)
+					if len(filters) == 0 || hit {
+						matched = hit
+						if excludeHit, _ := matchesFilters(line, excludes); !excludeHit {
+							if len(hitRes) > 0 && c.isColor {
+								line = colorText(line, hitRes)
+							}
+
+							if _, err := c.outStream.Write(line); err != nil {
+								return false, fmt.Errorf("error writing to output: %w", err)
+							}
+						}
+					}
+				}
 				break
 			}
 			return false, fmt.Errorf("error reading input: %w", err)
