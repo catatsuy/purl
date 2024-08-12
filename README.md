@@ -52,6 +52,7 @@ https://github.com/catatsuy/purl/assets/1249910/5cc479cc-ce1c-4901-864d-963bf659
 - **Simple Commands**: Use straightforward options like `-replace`, `-filter`, and `-exclude` to manage your data.
 - **Edit Files Easily**: The `-overwrite` option lets you update files directly, making changes quick and simple.
 - **Colorful Output**: When using the `-filter` option, the output on your screen can be colorful. You can control this with the `-color` or `-no-color` options.
+- **Error on No Matches**: With the `-fail` option, Purl returns an error (status code 1) if no matches are found when using `-filter` or `-replace`, similar to grep. If not used, Purl will not return an error even if no matches are found.
 
 This tool is made to be user-friendly and effective for different data handling tasks.
 
@@ -134,6 +135,24 @@ purl -filter "error" yourlog.log
 ```
 
 This command filters the lines containing "error" in `yourlog.log`, displaying them with colored output for better visibility.
+
+### Using the `-fail` Option
+
+```bash
+purl -fail -filter "error" yourlog.log
+```
+
+This command will search for lines containing "error" in `yourlog.log` and return an error (status code 1) if no matches are found. This behavior is useful for scripts where the absence of a match should trigger an error.
+
+### Combining `-fail` with `-replace`
+
+```bash
+purl -fail -replace "@search@replace@" yourfile.txt
+```
+
+In this example, if no instances of "search" are found in `yourfile.txt`, Purl will return an error, indicating that no replacements were made.
+
+These additions should provide a clear explanation of the new `-fail` option, helping users understand how to use it effectively in their workflows.
 
 ### Filtering Input with Multiple Criteria
 
