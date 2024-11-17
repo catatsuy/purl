@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"runtime"
 	"runtime/debug"
+	"strings"
 )
 
 const (
@@ -70,6 +71,16 @@ func NewCLI(outStream, errStream io.Writer, inputStream io.Reader, isStdinTermin
 	return &CLI{appVersion: version(), outStream: outStream, errStream: errStream, inputStream: inputStream, isStdinTerminal: isStdinTerminal, isStdoutTerminal: isStdoutTerminal}
 }
 
+func unescapeString(input string) string {
+	replacer := strings.NewReplacer(
+		`\\`, `\`,
+		`\n`, "\n",
+		`\t`, "\t",
+		`\r`, "\r",
+	)
+	return replacer.Replace(input)
+}
+
 func (c *CLI) Run(args []string) int {
 	flags, err := c.parseFlags(args)
 	if err != nil {
@@ -103,8 +114,9 @@ func (c *CLI) Run(args []string) int {
 			fmt.Fprintln(c.errStream, "Invalid replace expression format. Use \"@search@replace@\"")
 			return ExitCodeFail
 		}
-		var searchPattern string
-		searchPattern, replacement = parts[0], []byte(parts[1])
+		searchPattern := parts[0]
+		replacementStr := unescapeString(parts[1])
+		replacement = []byte(replacementStr)
 
 		if c.ignoreCase {
 			searchPattern = "(?i)" + searchPattern

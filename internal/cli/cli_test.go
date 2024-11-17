@@ -111,6 +111,56 @@ func TestRun_successProcess(t *testing.T) {
 			input:    "searchb\r\nreplace\r\nsearchcabcdefg\r\n",
 			expected: "searchb\r\nsearchcabcdefg\r\n",
 		},
+		"replace with special characters": {
+			args:     []string{"purl", "-replace", "@search@re\\nplace@"},
+			input:    "searchb searchc\n",
+			expected: "re\nplaceb re\nplacec\n",
+		},
+		"replace with literal backslash": {
+			args:     []string{"purl", "-replace", "@search@re\\\\place@"},
+			input:    "searchb searchc\n",
+			expected: "re\\placeb re\\placec\n",
+		},
+		"replace with tab character": {
+			args:     []string{"purl", "-replace", "@search@re\\tplace@"},
+			input:    "searchb searchc\n",
+			expected: "re\tplaceb re\tplacec\n",
+		},
+		"replace tab with space": {
+			args:     []string{"purl", "-replace", "@\\t@ @"},
+			input:    "column1\tcolumn2\tcolumn3\n",
+			expected: "column1 column2 column3\n",
+		},
+		"filter lines containing tab": {
+			args:     []string{"purl", "-filter", "\t"},
+			input:    "row1\tdata1\nrow2 data2\nrow3\tdata3\n",
+			expected: "row1\tdata1\nrow3\tdata3\n",
+		},
+		"replace tab with new line": {
+			args:     []string{"purl", "-replace", "@\t@\\n@"},
+			input:    "row1\tdata1\tdata2\n",
+			expected: "row1\ndata1\ndata2\n",
+		},
+		"replace with carriage return": {
+			args:     []string{"purl", "-replace", "@search@re\rplace@"},
+			input:    "searchb searchc\n",
+			expected: "re\rplaceb re\rplacec\n",
+		},
+		"replace carriage return with space": {
+			args:     []string{"purl", "-replace", "@\r@ @"},
+			input:    "line1\rline2\rline3\n",
+			expected: "line1 line2 line3\n",
+		},
+		"filter lines containing carriage return": {
+			args:     []string{"purl", "-filter", "\r"},
+			input:    "line1\rdata1\nline2 data2\nline3\rdata3\n",
+			expected: "line1\rdata1\nline3\rdata3\n",
+		},
+		"replace carriage return with new line": {
+			args:     []string{"purl", "-replace", "@\r@\\n@"},
+			input:    "row1\rdata1\rdata2\n",
+			expected: "row1\ndata1\ndata2\n",
+		},
 	}
 
 	for name, test := range tests {
