@@ -59,6 +59,7 @@ type CLI struct {
 	isOverwrite bool
 	filters     rawStrings
 	excludes    rawStrings
+	extractExpr string
 	help        bool
 	isColor     bool
 	ignoreCase  bool
@@ -235,6 +236,71 @@ func (c *CLI) Run(args []string) int {
 		}
 	}
 
+	if len(c.extractExpr) > 0 {
+		// Split the extract expression into pattern and replacement
+		delimiter := string(c.extractExpr[0])
+		parts := regexp.MustCompile(regexp.QuoteMeta(delimiter)).Split(c.extractExpr[1:], -1)
+		if len(parts) < 2 {
+			fmt.Fprintln(c.errStream, "Invalid extract expression format. Use \"@pattern@replacement@\"")
+			return ExitCodeFail
+		}
+		searchPattern := parts[0]
+		replacementStr := unescapeString(parts[1])
+		replacement := []byte(replacementStr)
+
+		// Add case-insensitive flag if necessary
+		if c.ignoreCase {
+			searchPattern = "(?i)" + searchPattern
+		}
+
+		// Compile the regex pattern
+		searchRe, err := regexp.Compile(searchPattern)
+		if err != nil {
+			fmt.Fprintf(c.errStream, "Failed to compile extract regex pattern: %s\n", err)
+			return ExitCodeFail
+		}
+
+		// Process files if provided
+		if len(c.filePaths) > 0 {
+			for _, filePath := range c.filePaths {
+				file, err := os.Open(filePath)
+				if err != nil {
+					fmt.Fprintf(c.errStream, "Failed to open file: %s\n", err)
+					return ExitCodeFail
+				}
+				defer file.Close()
+
+				// Process the file content with the extract logic
+				matched, err := c.extractProcess(searchRe, replacement, file)
+				if err != nil {
+					fmt.Fprintf(c.errStream, "Failed to process file: %s\n", err)
+					return ExitCodeFail
+				}
+
+				// Handle fail mode if no matches are found
+				if c.failMode && !matched {
+					fmt.Fprintf(c.errStream, "No matches found in file: %s\n", filePath)
+					return ExitCodeNoMatch
+				}
+			}
+		} else {
+			// Process standard input if no files are provided
+			matched, err := c.extractProcess(searchRe, replacement, c.inputStream)
+			if err != nil {
+				fmt.Fprintf(c.errStream, "Failed to process input: %s\n", err)
+				return ExitCodeFail
+			}
+
+			// Handle fail mode if no matches are found
+			if c.failMode && !matched {
+				fmt.Fprintln(c.errStream, "No matches found in input")
+				return ExitCodeNoMatch
+			}
+		}
+
+		return ExitCodeOK
+	}
+
 	return ExitCodeOK
 }
 
@@ -246,6 +312,7 @@ func (c *CLI) parseFlags(args []string) (*flag.FlagSet, error) {
 
 	flags.BoolVar(&c.isOverwrite, "overwrite", false, "Replace original file with results.")
 	flags.StringVar(&c.replaceExpr, "replace", "", "Format: '@match@replacement@'.")
+	flags.StringVar(&c.extractExpr, "extract", "", "Extract and print text matching the regex pattern.")
 	flags.Var(&c.filters, "filter", "Apply search refinement.")
 	flags.Var(&c.excludes, "exclude", "Exclude lines matching regex.")
 	flags.BoolVar(&color, "color", false, "Colored output. Default auto.")
@@ -279,24 +346,52 @@ func (c *CLI) validateInput(flags *flag.FlagSet) error {
 		return fmt.Errorf("cannot use -overwrite option with stdin")
 	}
 
-	if len(c.replaceExpr) != 0 && (len(c.filters) != 0 || len(c.excludes) != 0) {
-		return fmt.Errorf("cannot use -replace and -filter options together")
+	err := c.validateMutuallyExclusiveOptions()
+	if err != nil {
+		return err
 	}
 
-	if (len(c.filters) == 0 && len(c.excludes) == 0) && len(c.replaceExpr) < 3 {
+	if err := c.validateExpressionFormats(); err != nil {
+		return err
+	}
+
+	if flags.NArg() > 0 {
+		c.filePaths = flags.Args()
+		for _, filePath := range c.filePaths {
+			if _, err := os.Stat(filePath); os.IsNotExist(err) {
+				return fmt.Errorf("input file does not exist: %s", filePath)
+			}
+		}
+	}
+
+	return nil
+}
+
+// validateMutuallyExclusiveOptions checks that incompatible options are not used together
+func (c *CLI) validateMutuallyExclusiveOptions() error {
+	if len(c.extractExpr) > 0 {
+		if len(c.replaceExpr) > 0 || len(c.filters) > 0 || len(c.excludes) > 0 {
+			return fmt.Errorf("-extract cannot be used with -replace, -filter, or -exclude options")
+		}
+	}
+
+	if len(c.replaceExpr) > 0 && (len(c.filters) > 0 || len(c.excludes) > 0 || len(c.extractExpr) > 0) {
+		return fmt.Errorf("-replace cannot be used with -filter, -exclude, or -extract options")
+	}
+
+	return nil
+}
+
+// validateExpressionFormats checks the format of expressions
+func (c *CLI) validateExpressionFormats() error {
+	// Validate -replace expression format
+	if len(c.replaceExpr) > 0 && len(c.replaceExpr) < 3 {
 		return fmt.Errorf("invalid replace expression format. Use \"@search@replace@\"")
 	}
 
-	if flags.NArg() == 0 {
-		return nil
-	}
-
-	c.filePaths = flags.Args()
-
-	for _, filePath := range c.filePaths {
-		if _, err := os.Stat(filePath); os.IsNotExist(err) {
-			return fmt.Errorf("input file does not exist")
-		}
+	// Validate -extract expression format
+	if len(c.extractExpr) > 0 && len(c.extractExpr) < 3 {
+		return fmt.Errorf("invalid extract expression format. Use \"@search@replace@\"")
 	}
 
 	return nil
@@ -376,6 +471,45 @@ func (c *CLI) filterProcess(filters []*regexp.Regexp, excludes []*regexp.Regexp,
 				if _, err := c.outStream.Write(line); err != nil {
 					return false, fmt.Errorf("error writing to output: %w", err)
 				}
+			}
+		}
+	}
+
+	return matched, nil
+}
+
+func (c *CLI) extractProcess(searchRe *regexp.Regexp, replacement []byte, inputStream io.Reader) (bool, error) {
+	matched := false
+	reader := bufio.NewReader(inputStream)
+	replacementStr := string(replacement)
+
+	for {
+		line, err := reader.ReadBytes('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return false, fmt.Errorf("error reading input: %w", err)
+		}
+
+		if errors.Is(err, io.EOF) && len(line) == 0 {
+			break
+		}
+
+		// Find all matches in the current line
+		matches := searchRe.FindAllSubmatch(line, -1)
+		for _, match := range matches {
+			matched = true
+
+			// Construct replacements for placeholders dynamically
+			replacements := make([]string, 0, 2*len(match))
+			for i := len(match) - 1; i >= 0; i-- { // Start from the largest index
+				replacements = append(replacements, fmt.Sprintf("$%d", i), string(match[i]))
+			}
+
+			// Apply the replacements
+			result := strings.NewReplacer(replacements...).Replace(replacementStr)
+
+			// Write the result with error checking
+			if _, err := fmt.Fprintln(c.outStream, result); err != nil {
+				return false, fmt.Errorf("error writing to output: %w", err)
 			}
 		}
 	}

@@ -161,6 +161,29 @@ func TestRun_successProcess(t *testing.T) {
 			input:    "row1\rdata1\rdata2\n",
 			expected: "row1\ndata1\ndata2\n",
 		},
+		"basic extract": {
+			args:     []string{"purl", "-extract", "@quick ([a-z]+) fox@animal: $1@"},
+			input:    "The quick brown fox jumps over the lazy dog\nquick aaa fox",
+			expected: "animal: brown\nanimal: aaa\n",
+		},
+		"extract with multiple capture groups": {
+			args:     []string{"purl", "-extract", "@(\\w+) (\\w+) (\\w+)@Match: $1, $2, $3@"},
+			input:    "apple banana cherry\ngrape orange pineapple",
+			expected: "Match: apple, banana, cherry\nMatch: grape, orange, pineapple\n",
+		},
+		"extract with $10 capture group": {
+			args:     []string{"purl", "-extract", "@quick ([a-z]+) ([a-z]+) ([a-z]+) ([a-z]+) ([a-z]+) ([a-z]+) ([a-z]+) ([a-z]+) ([a-z]+) ([a-z]+) fox@$10 and $1@"},
+			input:    "quick one two three four five six seven eight nine ten fox",
+			expected: "ten and one\n",
+		},
+		"provide file for extract": {
+			args:     []string{"purl", "-extract", "@quick ([a-z]+) fox@animal: $1@", "testdata/test_extract.txt"},
+			expected: "animal: brown\nanimal: red\n",
+		},
+		"provide multiple files for extract": {
+			args:     []string{"purl", "-extract", "@quick ([a-z]+) fox@animal: $1@", "testdata/test_extract.txt", "testdata/test_extract2.txt"},
+			expected: "animal: brown\nanimal: red\nanimal: green\nanimal: blue\n",
+		},
 	}
 
 	for name, test := range tests {
@@ -798,6 +821,58 @@ func TestFilterProcess(t *testing.T) {
 			gotOutput := outStream.String()
 			if gotOutput != tt.wantOutput {
 				t.Errorf("filterProcess() gotOutput = %v, want %v", gotOutput, tt.wantOutput)
+			}
+		})
+	}
+}
+
+func TestRun_ExtractWithFail(t *testing.T) {
+	tests := map[string]struct {
+		args         []string
+		input        string
+		expected     string
+		expectedCode int
+	}{
+		"extract with match": {
+			args:         []string{"purl", "-extract", "@quick ([a-z]+) fox@animal: $1@", "-fail"},
+			input:        "The quick brown fox jumps over the lazy dog\nquick red fox",
+			expected:     "animal: brown\nanimal: red\n",
+			expectedCode: 0, // Success
+		},
+		"extract with no match": {
+			args:         []string{"purl", "-extract", "@quick ([a-z]+) fox@animal: $1@", "-fail"},
+			input:        "The fast brown wolf jumps over the lazy dog",
+			expected:     "",
+			expectedCode: 1, // Fail due to no match
+		},
+		"extract multiple groups with match": {
+			args:         []string{"purl", "-extract", "@(\\w+) (\\w+) (\\w+)@Match: $1, $2, $3@", "-fail"},
+			input:        "apple banana cherry\ngrape orange pineapple",
+			expected:     "Match: apple, banana, cherry\nMatch: grape, orange, pineapple\n",
+			expectedCode: 0, // Success
+		},
+		"extract multiple groups with no match": {
+			args:         []string{"purl", "-extract", "@(\\w+) (\\w+) (\\w+)@Match: $1, $2, $3@", "-fail"},
+			input:        "singleword only",
+			expected:     "",
+			expectedCode: 1, // Fail due to no match
+		},
+	}
+
+	for name, test := range tests {
+		test := test
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			outStream, errStream, inputStream := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
+			cl := cli.NewCLI(outStream, errStream, inputStream, false, false)
+			inputStream.WriteString(test.input)
+
+			if got, expected := cl.Run(test.args), test.expectedCode; got != expected {
+				t.Fatalf("Expected exit code %d, but got %d; error: %q", expected, got, errStream.String())
+			}
+
+			if outStream.String() != test.expected {
+				t.Errorf("Output=%q, want %q; error: %q", outStream.String(), test.expected, errStream.String())
 			}
 		})
 	}

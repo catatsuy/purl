@@ -49,10 +49,11 @@ https://github.com/catatsuy/purl/assets/1249910/5cc479cc-ce1c-4901-864d-963bf659
 **purl** is a tool that helps you easily handle data from different sources. Here are its main features:
 
 - **Flexible Data Input and Output**: You can input data from typing directly or from files. Similarly, you can choose to output data directly to your screen or save it back to files.
-- **Simple Commands**: Use straightforward options like `-replace`, `-filter`, and `-exclude` to manage your data.
+- **Extract Specific Text**: The `-extract` option lets you extract and format specific parts of the text using regular expressions. For example, you can capture groups in the pattern and use them in a custom output format.
+- **Simple Commands**: Use straightforward options like `-replace`, `-filter`, `-exclude`, and `-extract` to manage your data.
 - **Edit Files Easily**: The `-overwrite` option lets you update files directly, making changes quick and simple.
 - **Colorful Output**: When using the `-filter` option, the output on your screen can be colorful. You can control this with the `-color` or `-no-color` options.
-- **Error on No Matches**: With the `-fail` option, Purl returns an error (status code 1) if no matches are found when using `-filter` or `-replace`, similar to grep. If not used, Purl will not return an error even if no matches are found.
+- **Error on No Matches**: With the `-fail` option, Purl returns an error (status code 1) if no matches are found when using `-filter`, `-replace`, or `-extract`. If not used, Purl will not return an error even if no matches are found.
 
 This tool is made to be user-friendly and effective for different data handling tasks.
 
@@ -135,6 +136,48 @@ purl -filter "error" yourlog.log
 ```
 
 This command filters the lines containing "error" in `yourlog.log`, displaying them with colored output for better visibility.
+
+### Extracting Specific Parts of Text
+
+The `-extract` option allows you to capture specific parts of the text using regular expressions and output them in a custom format.
+
+```bash
+purl -extract "@quick ([a-z]+) fox@animal: $1@" yourfile.txt
+```
+
+This command captures the word after "quick" and before "fox" and formats it as `animal: <captured_word>`. For example, given the input:
+
+```
+The quick brown fox jumps over the lazy dog
+quick red fox
+```
+
+The output will be:
+
+```
+animal: brown
+animal: red
+```
+
+You can also use multiple capture groups to format more complex outputs:
+
+```bash
+purl -extract "@(\\w+) (\\w+) (\\w+)@Match: $1, $2, $3@" yourfile.txt
+```
+
+With the input:
+
+```
+apple banana cherry
+grape orange pineapple
+```
+
+The output will be:
+
+```
+Match: apple, banana, cherry
+Match: grape, orange, pineapple
+```
 
 ### Using the `-fail` Option
 
