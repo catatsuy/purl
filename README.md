@@ -226,6 +226,26 @@ This sequence finds all files containing 'search_pattern', then uses Purl to rep
 
 Purl is crafted to offer simplicity for quick tasks as well as the capability to perform complex text processing, embodying the spirit of its name in every action it performs.
 
+## Tips and Tricks
+
+- **Using Special Characters**: Purl supports special characters like `\n` (newline), `\t` (tab), and `\r` (carriage return) in both patterns and replacements. For example:
+
+```bash
+purl -replace "@pattern@\nreplacement@" file.txt
+```
+
+This replaces occurrences of `pattern` followed by a newline and text in the file with replacement.
+
+- **Handling Single Quotes**: When using single quotes or other special characters that conflict with shell syntax, you can combine different quoting styles. For example:
+
+```bash
+purl -replace '@pattern@'"'"'replacement'"'"'@' file.txt
+```
+
+Here, `'"'"'` is used to escape the single quote within the single-quoted string.
+
+These tips can help you effectively use Purl in more complex scenarios while navigating shell-specific limitations.
+
 ## FAQ
 
 ### What can I do with regular expressions?
