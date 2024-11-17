@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -324,22 +325,15 @@ func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement []byte, inputS
 		reader := bufio.NewReader(inputStream)
 		for {
 			line, err := reader.ReadBytes('\n')
-			if err != nil {
-				if err == io.EOF {
-					// Process the remaining data if any
-					if len(line) > 0 {
-						modifiedLine := searchRe.ReplaceAllFunc(line, func(match []byte) []byte {
-							matched = true
-							return replacement
-						})
-						if _, err := c.outStream.Write(modifiedLine); err != nil {
-							return false, fmt.Errorf("error writing to output: %w", err)
-						}
-					}
-					break
-				}
+
+			if err != nil && !errors.Is(err, io.EOF) {
 				return false, fmt.Errorf("error reading input: %w", err)
 			}
+
+			if errors.Is(err, io.EOF) && len(line) == 0 {
+				break
+			}
+
 			// Replace text in each line using the regex
 			modifiedLine := searchRe.ReplaceAllFunc(line, func(match []byte) []byte {
 				matched = true
@@ -362,27 +356,13 @@ func (c *CLI) filterProcess(filters []*regexp.Regexp, excludes []*regexp.Regexp,
 	reader := bufio.NewReader(inputStream)
 	for {
 		line, err := reader.ReadBytes('\n')
-		if err != nil {
-			if err == io.EOF {
-				// Process the remaining data if any
-				if len(line) > 0 {
-					hit, hitRes := matchesFilters(line, filters)
-					if len(filters) == 0 || hit {
-						matched = hit
-						if excludeHit, _ := matchesFilters(line, excludes); !excludeHit {
-							if len(hitRes) > 0 && c.isColor {
-								line = colorText(line, hitRes)
-							}
 
-							if _, err := c.outStream.Write(line); err != nil {
-								return false, fmt.Errorf("error writing to output: %w", err)
-							}
-						}
-					}
-				}
-				break
-			}
+		if err != nil && !errors.Is(err, io.EOF) {
 			return false, fmt.Errorf("error reading input: %w", err)
+		}
+
+		if errors.Is(err, io.EOF) && len(line) == 0 {
+			break
 		}
 
 		hit, hitRes := matchesFilters(line, filters)
