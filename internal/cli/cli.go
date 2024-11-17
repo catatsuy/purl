@@ -480,37 +480,29 @@ func (c *CLI) filterProcess(filters []*regexp.Regexp, excludes []*regexp.Regexp,
 
 func (c *CLI) extractProcess(searchRe *regexp.Regexp, replacement []byte, inputStream io.Reader) (bool, error) {
 	matched := false
-	reader := bufio.NewReader(inputStream)
 	replacementStr := string(replacement)
 
-	for {
-		line, err := reader.ReadBytes('\n')
-		if err != nil && !errors.Is(err, io.EOF) {
-			return false, fmt.Errorf("error reading input: %w", err)
+	b, err := io.ReadAll(inputStream)
+	if err != nil {
+		return false, fmt.Errorf("error reading file: %w", err)
+	}
+
+	matches := searchRe.FindAllSubmatch(b, -1)
+	for _, match := range matches {
+		matched = true
+
+		// Construct replacements for placeholders dynamically
+		replacements := make([]string, 0, 2*len(match))
+		for i := len(match) - 1; i >= 0; i-- { // Start from the largest index
+			replacements = append(replacements, fmt.Sprintf("$%d", i), string(match[i]))
 		}
 
-		if errors.Is(err, io.EOF) && len(line) == 0 {
-			break
-		}
+		// Apply the replacements
+		result := strings.NewReplacer(replacements...).Replace(replacementStr)
 
-		// Find all matches in the current line
-		matches := searchRe.FindAllSubmatch(line, -1)
-		for _, match := range matches {
-			matched = true
-
-			// Construct replacements for placeholders dynamically
-			replacements := make([]string, 0, 2*len(match))
-			for i := len(match) - 1; i >= 0; i-- { // Start from the largest index
-				replacements = append(replacements, fmt.Sprintf("$%d", i), string(match[i]))
-			}
-
-			// Apply the replacements
-			result := strings.NewReplacer(replacements...).Replace(replacementStr)
-
-			// Write the result with error checking
-			if _, err := fmt.Fprintln(c.outStream, result); err != nil {
-				return false, fmt.Errorf("error writing to output: %w", err)
-			}
+		// Write the result with error checking
+		if _, err := fmt.Fprintln(c.outStream, result); err != nil {
+			return false, fmt.Errorf("error writing to output: %w", err)
 		}
 	}
 
