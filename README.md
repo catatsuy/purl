@@ -57,6 +57,49 @@ https://github.com/catatsuy/purl/assets/1249910/5cc479cc-ce1c-4901-864d-963bf659
 
 This tool is made to be user-friendly and effective for different data handling tasks.
 
+### Regular Expressions and Multi-Line Mode in Purl
+
+Purl uses Go's `regexp` package with **Multi-Line Mode** (`(?m)`) always enabled. This makes line-based text processing intuitive and powerful.
+
+#### What is Multi-Line Mode?
+
+In Multi-Line Mode:
+- `^` matches the start of a line.
+- `$` matches the end of a line, just before the newline character (`\n`).
+
+This mode is particularly useful when working with text files, as it aligns regular expressions with line-based operations.
+
+Here’s a simplified and clear explanation for the README:
+
+### Special Case: Empty Lines
+
+When using `^$`, it matches completely empty lines with zero characters. However, lines that only contain a newline character (`\n`) are not considered "empty" in Go's `regexp`.
+
+If you want to match and exclude lines that only contain a newline (`\n`), you should use `^\n$` instead.
+
+#### Example
+
+**Input:**
+```
+line1
+
+line2
+line3
+
+```
+
+**Command:**
+```bash
+purl -exclude "^\n$" file.txt
+```
+
+**Output:**
+```
+line1
+line2
+line3
+```
+
 ## Installation
 
 It is recommended that you use the binaries available on [GitHub Releases](https://github.com/catatsuy/purl/releases). It is advisable to download and use the latest version.
@@ -90,6 +133,33 @@ If you want to use Purl in your GitHub Actions workflows, include the following 
 ```
 
 These steps ensure that Purl is downloaded and moved to `/usr/local/bin`, making it available for use in subsequent steps of your workflow.
+
+### Why Use Multi-Line Mode?
+
+Purl's default Multi-Line Mode (`(?m)`) simplifies operations like filtering, replacing, and excluding lines. You don't need to manually include `(?m)` in your patterns—it's always enabled for you.
+
+#### Example Use Cases
+
+1. **Filter Lines Starting with a Word**
+   ```bash
+   purl -filter "^START" file.txt
+   ```
+
+   Matches lines that start with `START`.
+
+2. **Exclude Empty Lines**
+   ```bash
+   purl -exclude "^\n$" file.txt
+   ```
+
+   Removes lines that only contain a newline (`\n`).
+
+3. **Replace Text on Specific Lines**
+   ```bash
+   purl -replace "@^line1@REPLACED@" file.txt
+   ```
+
+   Replaces lines starting with `line1` with `REPLACED`.
 
 ## Usage Examples
 
@@ -306,3 +376,12 @@ purl -replace "#pattern#replacement#" file.txt
 ```
 
 Be sure your character is not part of your pattern or replacement text.
+
+### Why Doesn't `-exclude '^$'` Work for Empty Lines?
+
+In Go's `regexp`:
+
+- `^$` matches lines that are completely empty (zero characters).
+- Lines with just a newline (`\n`) contain one character and are not matched by `^$`.
+
+To handle such lines, use `^\n$` to explicitly match them.
