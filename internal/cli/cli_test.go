@@ -877,3 +877,68 @@ func TestRun_ExtractWithFail(t *testing.T) {
 		})
 	}
 }
+
+func TestRun_MultiLineMode(t *testing.T) {
+	tests := map[string]struct {
+		args     []string
+		input    string
+		expected string
+	}{
+		// -exclude
+		"exclude empty lines": {
+			args:     []string{"purl", "-exclude", "^\n$"},
+			input:    "line1\n\nline2\nline3\n\n",
+			expected: "line1\nline2\nline3\n",
+		},
+		"exclude lines with only spaces": {
+			args:     []string{"purl", "-exclude", "^\\s+$"},
+			input:    "line1\n   \nline2\nline3\n\t\n",
+			expected: "line1\nline2\nline3\n",
+		},
+		"exclude lines starting with #": {
+			args:     []string{"purl", "-exclude", "^#"},
+			input:    "#comment1\nline1\n#comment2\nline2\n",
+			expected: "line1\nline2\n",
+		},
+		// -filter
+		"filter lines starting with specific word": {
+			args:     []string{"purl", "-filter", "^START"},
+			input:    "START line1\nline2\nSTART line3\nline4\n",
+			expected: "START line1\nSTART line3\n",
+		},
+		"filter lines containing word": {
+			args:     []string{"purl", "-filter", "word"},
+			input:    "this is a word\nno match\nanother word here\n",
+			expected: "this is a word\nanother word here\n",
+		},
+		// -replace
+		"replace specific lines": {
+			args:     []string{"purl", "-replace", "@^line1@REPLACED@"},
+			input:    "line1\nline2\nline1 again\n",
+			expected: "REPLACED\nline2\nREPLACED again\n",
+		},
+		"replace word in multiple lines": {
+			args:     []string{"purl", "-replace", "@line@LINE@"},
+			input:    "line1\nline2\nnot this\nline3\n",
+			expected: "LINE1\nLINE2\nnot this\nLINE3\n",
+		},
+	}
+
+	for name, test := range tests {
+		test := test
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			outStream, errStream, inputStream := new(bytes.Buffer), new(bytes.Buffer), new(bytes.Buffer)
+			cl := cli.NewCLI(outStream, errStream, inputStream, false, false)
+			inputStream.WriteString(test.input)
+
+			if got, expected := cl.Run(test.args), 0; got != expected {
+				t.Fatalf("Expected exit code %d, but got %d; error: %q", expected, got, errStream.String())
+			}
+
+			if outStream.String() != test.expected {
+				t.Errorf("Output=%q, want %q; error: %q", outStream.String(), test.expected, errStream.String())
+			}
+		})
+	}
+}

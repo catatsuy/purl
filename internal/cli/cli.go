@@ -513,7 +513,9 @@ func compileRegexps(rawPatterns []string, ignoreCase bool) ([]*regexp.Regexp, er
 	regexps := make([]*regexp.Regexp, 0, len(rawPatterns))
 	for _, pattern := range rawPatterns {
 		if ignoreCase {
-			pattern = "(?i)" + pattern
+			pattern = "(?im)" + pattern
+		} else {
+			pattern = "(?m)" + pattern
 		}
 		re, err := regexp.Compile(pattern)
 		if err != nil {
