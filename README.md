@@ -57,6 +57,28 @@ https://github.com/catatsuy/purl/assets/1249910/5cc479cc-ce1c-4901-864d-963bf659
 
 This tool is made to be user-friendly and effective for different data handling tasks.
 
+## Input Processing Modes
+
+Purl has two ways to read input:
+
+1. **Multi-Line Mode (For Files)**
+   When you use a file, purl reads the whole file at once. This lets you use regular expressions that match across multiple lines. However, it waits until the file is finished, so it is not good for live data (like piped input).
+
+2. **Line Mode (For Standard Input)**
+   When you do not give a file (using standard input), purl automatically uses **line mode**. In this mode, purl reads one line at a time and prints the output immediately. You can also force this mode by using the `-line` option.
+
+   **Examples:**
+   - To process data from a file or pipe and force line-by-line reading:
+     ```bash
+     cat yourfile.txt | purl -line -replace "@search@replace@"
+     ```
+   - If no file is given, purl uses line mode by default so it does not wait forever:
+     ```bash
+     purl -line -filter "error"
+     ```
+
+This way, purl outputs data quickly when reading live input, and still supports multi-line matching when reading files.
+
 ### Regular Expressions and Multi-Line Mode in Purl
 
 Purl uses Go's `regexp` package with **Multi-Line Mode** (`(?m)`) always enabled. This makes line-based text processing intuitive and powerful.
