@@ -63,6 +63,7 @@ type CLI struct {
 	help        bool
 	isColor     bool
 	ignoreCase  bool
+	lineMode    bool
 	failMode    bool
 	version     bool
 
@@ -318,6 +319,7 @@ func (c *CLI) parseFlags(args []string) (*flag.FlagSet, error) {
 	flags.BoolVar(&color, "color", false, "Colored output. Default auto.")
 	flags.BoolVar(&noColor, "no-color", false, "Disable colored output.")
 	flags.BoolVar(&c.ignoreCase, "i", false, `Ignore case (prefixes '(?i)' to all regular expressions)`)
+	flags.BoolVar(&c.lineMode, "line", false, "Process input line by line")
 	flags.BoolVar(&c.failMode, "fail", false, "Exit with a non-zero status if no matches are found")
 	flags.BoolVar(&c.help, "help", false, `Show help`)
 	flags.BoolVar(&c.version, "version", false, "Print version and quit")
@@ -333,6 +335,10 @@ func (c *CLI) parseFlags(args []string) (*flag.FlagSet, error) {
 	}
 
 	c.isColor = !noColor && (color || c.isStdoutTerminal)
+
+	if c.isStdinTerminal {
+		c.lineMode = true
+	}
 
 	return flags, nil
 }
@@ -403,7 +409,7 @@ func (c *CLI) validateExpressionFormats() error {
 // If input is from a file, it reads and processes the entire file at once.
 func (c *CLI) replaceProcess(searchRe *regexp.Regexp, replacement []byte, inputStream io.Reader) (bool, error) {
 	matched := false
-	if c.isStdinTerminal {
+	if !c.lineMode {
 		// Read all data from the file input
 		b, err := io.ReadAll(inputStream)
 		if err != nil {
@@ -482,27 +488,61 @@ func (c *CLI) extractProcess(searchRe *regexp.Regexp, replacement []byte, inputS
 	matched := false
 	replacementStr := string(replacement)
 
-	b, err := io.ReadAll(inputStream)
-	if err != nil {
-		return false, fmt.Errorf("error reading file: %w", err)
-	}
+	if c.lineMode {
+		reader := bufio.NewReader(inputStream)
+		for {
+			line, err := reader.ReadBytes('\n')
+			if err != nil && !errors.Is(err, io.EOF) {
+				return false, fmt.Errorf("error reading input: %w", err)
+			}
 
-	matches := searchRe.FindAllSubmatch(b, -1)
-	for _, match := range matches {
-		matched = true
+			if errors.Is(err, io.EOF) && len(line) == 0 {
+				break
+			}
 
-		// Construct replacements for placeholders dynamically
-		replacements := make([]string, 0, 2*len(match))
-		for i := len(match) - 1; i >= 0; i-- { // Start from the largest index
-			replacements = append(replacements, fmt.Sprintf("$%d", i), string(match[i]))
+			matches := searchRe.FindAllSubmatch(line, -1)
+			for _, match := range matches {
+				matched = true
+
+				replacements := make([]string, 0, 2*len(match))
+				for i := len(match) - 1; i >= 0; i-- {
+					replacements = append(replacements, fmt.Sprintf("$%d", i), string(match[i]))
+				}
+
+				result := strings.NewReplacer(replacements...).Replace(replacementStr)
+
+				if _, err := fmt.Fprintln(c.outStream, result); err != nil {
+					return false, fmt.Errorf("error writing to output: %w", err)
+				}
+			}
+
+			if errors.Is(err, io.EOF) {
+				break
+			}
+		}
+	} else {
+		b, err := io.ReadAll(inputStream)
+		if err != nil {
+			return false, fmt.Errorf("error reading file: %w", err)
 		}
 
-		// Apply the replacements
-		result := strings.NewReplacer(replacements...).Replace(replacementStr)
+		matches := searchRe.FindAllSubmatch(b, -1)
+		for _, match := range matches {
+			matched = true
 
-		// Write the result with error checking
-		if _, err := fmt.Fprintln(c.outStream, result); err != nil {
-			return false, fmt.Errorf("error writing to output: %w", err)
+			// Construct replacements for placeholders dynamically
+			replacements := make([]string, 0, 2*len(match))
+			for i := len(match) - 1; i >= 0; i-- { // Start from the largest index
+				replacements = append(replacements, fmt.Sprintf("$%d", i), string(match[i]))
+			}
+
+			// Apply the replacements
+			result := strings.NewReplacer(replacements...).Replace(replacementStr)
+
+			// Write the result with error checking
+			if _, err := fmt.Fprintln(c.outStream, result); err != nil {
+				return false, fmt.Errorf("error writing to output: %w", err)
+			}
 		}
 	}
 
