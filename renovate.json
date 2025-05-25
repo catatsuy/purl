@@ -1,11 +1,12 @@
 {
   "extends": [
-    "config:base"
+    "config:recommended"
   ],
-  "regexManagers": [
+  "customManagers": [
     {
-      "fileMatch": [
-        ".github/workflows/security.yml"
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/.github/workflows/security.yml/"
       ],
       "datasourceTemplate": "golang-version",
       "depNameTemplate": "golang",
@@ -14,8 +15,9 @@
       ]
     },
     {
-      "fileMatch": [
-        ".github/workflows/release.yml"
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/.github/workflows/release.yml/"
       ],
       "datasourceTemplate": "golang-version",
       "depNameTemplate": "golang",
