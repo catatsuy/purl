@@ -1,8 +1,6 @@
 module github.com/catatsuy/purl
 
-go 1.23.0
-
-toolchain go1.25.1
+go 1.25.0
 
 require golang.org/x/term v0.34.0
 
