@@ -501,6 +501,45 @@ func TestRun_successForOverwrite(t *testing.T) {
 	}
 }
 
+func TestRun_successForOverwriteRelativePath(t *testing.T) {
+	const (
+		targetFilename = "test_overwrite_relative.txt"
+		expected       = "replacemente replacementf\nnot not not\n"
+	)
+
+	srcPath := "testdata/test_for_overwrite.txt"
+	input, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Fatalf("failed to read source fixture: %v", err)
+	}
+
+	if err := os.WriteFile(targetFilename, input, 0o644); err != nil {
+		t.Fatalf("failed to create relative test file: %v", err)
+	}
+	defer func() {
+		if removeErr := os.Remove(targetFilename); removeErr != nil {
+			t.Fatalf("failed to clean up relative test file: %v", removeErr)
+		}
+	}()
+
+	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	cl := cli.NewCLI(outStream, errStream, os.Stdin, false, false)
+
+	args := []string{"purl", "-replace", "@search@replacement@", "-overwrite", targetFilename}
+	if got := cl.Run(args); got != 0 {
+		t.Fatalf("Expected exit code 0, but got %d; error: %q", got, errStream.String())
+	}
+
+	result, err := os.ReadFile(targetFilename)
+	if err != nil {
+		t.Fatalf("failed to read result file: %v", err)
+	}
+
+	if string(result) != expected {
+		t.Errorf("Output=%q, want %q; error: %q", string(result), expected, errStream.String())
+	}
+}
+
 func copyFile(t *testing.T, src, dst string) error {
 	t.Helper()
 	input, err := os.ReadFile(src)
