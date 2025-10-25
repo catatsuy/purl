@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"runtime/debug"
@@ -161,7 +162,9 @@ func (c *CLI) Run(args []string) int {
 			var tmpFile *os.File
 
 			if c.isOverwrite {
-				tmpFile, err = os.CreateTemp("", "purl")
+				// temp must share the filesystem with target to allow rename
+				// defer ensures we clean up unless the process is interrupted
+				tmpFile, err = os.CreateTemp(filepath.Dir(filePath), "purl")
 				if err != nil {
 					fmt.Fprintf(c.errStream, "Failed to create temp file: %s\n", err)
 					return ExitCodeFail
