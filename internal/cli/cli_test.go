@@ -3,6 +3,7 @@ package cli_test
 import (
 	"bytes"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -537,6 +538,51 @@ func TestRun_successForOverwriteRelativePath(t *testing.T) {
 
 	if string(result) != expected {
 		t.Errorf("Output=%q, want %q; error: %q", string(result), expected, errStream.String())
+	}
+}
+
+func TestRun_overwritePreservesPermissions(t *testing.T) {
+	const (
+		srcPath       = "testdata/test_for_overwrite.txt"
+		expected      = "replacemente replacementf\nnot not not\n"
+		expectedMode  = 0o640
+		replaceTarget = "@search@replacement@"
+	)
+
+	input, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Fatalf("failed to read source fixture: %v", err)
+	}
+
+	tempDir := t.TempDir()
+	targetPath := filepath.Join(tempDir, "perm_preserve.txt")
+
+	if err := os.WriteFile(targetPath, input, expectedMode); err != nil {
+		t.Fatalf("failed to create temp test file: %v", err)
+	}
+
+	outStream, errStream := new(bytes.Buffer), new(bytes.Buffer)
+	cl := cli.NewCLI(outStream, errStream, os.Stdin, false, false)
+
+	args := []string{"purl", "-replace", replaceTarget, "-overwrite", targetPath}
+	if got := cl.Run(args); got != 0 {
+		t.Fatalf("Expected exit code 0, but got %d; error: %q", got, errStream.String())
+	}
+
+	result, err := os.ReadFile(targetPath)
+	if err != nil {
+		t.Fatalf("failed to read result file: %v", err)
+	}
+	if string(result) != expected {
+		t.Fatalf("Output=%q, want %q; error: %q", string(result), expected, errStream.String())
+	}
+
+	info, err := os.Stat(targetPath)
+	if err != nil {
+		t.Fatalf("failed to stat result file: %v", err)
+	}
+	if info.Mode().Perm() != expectedMode {
+		t.Fatalf("Expected file mode %o, but got %o", expectedMode, info.Mode().Perm())
 	}
 }
 

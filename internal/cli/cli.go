@@ -212,6 +212,17 @@ func (c *CLI) Run(args []string) int {
 			}
 
 			if c.isOverwrite {
+				info, err := os.Stat(filePath)
+				if err != nil {
+					fmt.Fprintf(c.errStream, "Failed to stat file: %s\n", err)
+					return ExitCodeFail
+				}
+
+				if err := os.Chmod(tmpFile.Name(), info.Mode().Perm()); err != nil {
+					fmt.Fprintf(c.errStream, "Failed to set file permissions: %s\n", err)
+					return ExitCodeFail
+				}
+
 				if err := os.Rename(tmpFile.Name(), filePath); err != nil {
 					fmt.Fprintf(c.errStream, "Failed to overwrite the original file: %s\n", err)
 					return ExitCodeFail
