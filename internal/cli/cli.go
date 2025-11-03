@@ -159,7 +159,10 @@ func (c *CLI) Run(args []string) int {
 			}
 			defer file.Close()
 
-			var tmpFile *os.File
+			var (
+				tmpFile      *os.File
+				originalPerm os.FileMode
+			)
 
 			if c.isOverwrite {
 				resolvedPath, err := filepath.Abs(filePath)
@@ -168,6 +171,13 @@ func (c *CLI) Run(args []string) int {
 					return ExitCodeFail
 				}
 
+				fileInfo, err := file.Stat()
+				if err != nil {
+					fmt.Fprintf(c.errStream, "Failed to stat file: %s\n", err)
+					return ExitCodeFail
+				}
+				originalPerm = fileInfo.Mode().Perm()
+
 				// temp must share the filesystem with target to allow rename
 				// defer ensures we clean up unless the process is interrupted
 				tmpFile, err = os.CreateTemp(filepath.Dir(resolvedPath), "purl")
@@ -175,14 +185,8 @@ func (c *CLI) Run(args []string) int {
 					fmt.Fprintf(c.errStream, "Failed to create temp file: %s\n", err)
 					return ExitCodeFail
 				}
-				defer os.Remove(tmpFile.Name())
-				defer tmpFile.Close()
 
-				c.outStream, err = os.Create(tmpFile.Name())
-				if err != nil {
-					fmt.Fprintf(c.errStream, "Failed to open file for writing: %s\n", err)
-					return ExitCodeFail
-				}
+				c.outStream = tmpFile
 			}
 
 			if len(c.replaceExpr) > 0 {
@@ -212,18 +216,23 @@ func (c *CLI) Run(args []string) int {
 			}
 
 			if c.isOverwrite {
-				info, err := os.Stat(filePath)
-				if err != nil {
-					fmt.Fprintf(c.errStream, "Failed to stat file: %s\n", err)
+				if err := tmpFile.Close(); err != nil {
+					os.Remove(tmpFile.Name())
+
+					fmt.Fprintf(c.errStream, "Failed to close temp file: %s\n", err)
 					return ExitCodeFail
 				}
 
-				if err := os.Chmod(tmpFile.Name(), info.Mode().Perm()); err != nil {
+				if err := os.Chmod(tmpFile.Name(), originalPerm); err != nil {
+					os.Remove(tmpFile.Name())
+
 					fmt.Fprintf(c.errStream, "Failed to set file permissions: %s\n", err)
 					return ExitCodeFail
 				}
 
 				if err := os.Rename(tmpFile.Name(), filePath); err != nil {
+					os.Remove(tmpFile.Name())
+
 					fmt.Fprintf(c.errStream, "Failed to overwrite the original file: %s\n", err)
 					return ExitCodeFail
 				}
