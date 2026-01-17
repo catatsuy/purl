@@ -11,7 +11,7 @@
       "datasourceTemplate": "golang-version",
       "depNameTemplate": "golang",
       "matchStrings": [
-        "go-version: (?<currentValue>[0-9]*.[0-9]*.[0-9]*)"
+        "go-version: \"?(?<currentValue>[0-9]*.[0-9]*.[0-9]*)\"?"
       ]
     },
     {
@@ -22,7 +22,7 @@
       "datasourceTemplate": "golang-version",
       "depNameTemplate": "golang-security",
       "matchStrings": [
-        "go-version-input: (?<currentValue>[0-9]*.[0-9]*.[0-9]*)"
+        "go-version-input: \"?(?<currentValue>[0-9]*.[0-9]*.[0-9]*)\"?"
       ]
     },
     {
@@ -33,7 +33,7 @@
       "datasourceTemplate": "golang-version",
       "depNameTemplate": "golang",
       "matchStrings": [
-        "go-version: (?<currentValue>[0-9]*.[0-9]*.[0-9]*)"
+        "go-version: \"?(?<currentValue>[0-9]*.[0-9]*.[0-9]*)\"?"
       ]
     },
     {
@@ -44,7 +44,7 @@
       "datasourceTemplate": "golang-version",
       "depNameTemplate": "golang-security",
       "matchStrings": [
-        "GoVersionOverride = \"(?<currentValue>[0-9]*.[0-9]*.[0-9]*)\""
+        "GoVersionOverride = \"?(?<currentValue>[0-9]*.[0-9]*.[0-9]*)\"?"
       ]
     }
   ],
