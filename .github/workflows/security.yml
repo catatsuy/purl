@@ -8,10 +8,15 @@ on:
   schedule:
     - cron: "0 0 * * *"
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   govulncheck_job:
     runs-on: ubuntu-latest
     name: Run govulncheck
+    timeout-minutes: 10
     steps:
       - id: govulncheck
         uses: golang/govulncheck-action@v1
