@@ -1,0 +1,13 @@
+excludes:
+  - policy_name: action_ref_should_be_full_length_commit_sha
+    action_name: actions/checkout
+  - policy_name: action_ref_should_be_full_length_commit_sha
+    action_name: actions/setup-go
+  - policy_name: action_ref_should_be_full_length_commit_sha
+    action_name: github/codeql-action/*
+  - policy_name: action_ref_should_be_full_length_commit_sha
+    action_name: golang/govulncheck-action
+  - policy_name: action_ref_should_be_full_length_commit_sha
+    action_name: goreleaser/goreleaser-action
+  - policy_name: action_ref_should_be_full_length_commit_sha
+    action_name: google/osv-scanner-action/.github/workflows/*
